@@ -43,7 +43,9 @@ class IntentComplianceTests(unittest.TestCase):
         self.assertGreaterEqual(ranking[0].get("framework_bonus", 0), 1)
 
     def test_known_intent_uses_starter_profile(self):
-        key, raw, blueprint = mod.resolve_app_blueprint("chatbot", {"frameworks": ["React"]})
+        key, raw, blueprint = mod.resolve_app_blueprint(
+            "chatbot", {"frameworks": ["React"]}
+        )
         self.assertEqual(key, "chatbot")
         self.assertEqual(raw, "chatbot")
         self.assertEqual(blueprint.get("label"), "Chatbot")
