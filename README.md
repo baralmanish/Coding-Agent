@@ -33,6 +33,7 @@ It supports:
 - Knowledge-graph-friendly specs/memory notes (frontmatter, wiki links, and vault map)
 - Spec-driven development with executable specs and validation patterns
 - Parallel agent coordination and session-based learning templates
+- Selective memory management to minimize context refresh cost
 
 ## Requirements
 

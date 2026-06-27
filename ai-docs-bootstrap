@@ -1701,6 +1701,7 @@ This project supports advanced development workflows:
 - **Executable Specs**: Turn requirements into validated specifications (see `.ai-docs/EXECUTABLE-SPECS.md`)
 - **Code Validation**: Validate correctness beyond unit tests (see `.ai-docs/CODE-VALIDATION.md`)
 - **Parallel Agents**: Coordinate multiple agents with session-based learning (see `.ai-docs/PARALLEL-AGENTS.md`)
+- **Selective Memory**: Minimize context refresh cost by updating only changed facts (see `.ai-docs/SELECTIVE-MEMORY-MANAGEMENT.md`)
 
 Recommended approach:
 1. Define executable specs in `.specs/` folder with acceptance criteria and assertions.
@@ -2286,6 +2287,69 @@ After each coding session, record:
 - Update specs based on validation failures.
 - Share learnings across agents via memory notes.
 - Track validation improvement over time.
+""",
+        ".ai-docs/SELECTIVE-MEMORY-MANAGEMENT.md": """---
+title: Selective Memory Management
+type: memory-optimization
+tags: [ai-docs, memory, optimization, context]
+---
+
+# Selective Memory Management
+
+Minimize LLM calls and token usage by updating only what changed, not the entire context.
+
+## Core Principle
+Instead of re-extracting all context every session, track and update only the changed parts.
+
+## Three-Layer Memory
+
+### 1. Key-Value Store (Fast Lookup)
+Store frequently accessed facts as simple key-value pairs:
+```json
+{
+  "project_name": "MyApp",
+  "primary_language": "TypeScript",
+  "primary_framework": "Next.js",
+  "main_db": "PostgreSQL",
+  "critical_paths": ["auth", "payments", "notifications"]
+}
+```
+**Cost**: Single LLM call per update, instant retrieval.
+
+### 2. Selective Graph (Structured Context)
+Keep relationships between concepts lightweight:
+- Current feature specs and their status
+- Known bugs and their root causes
+- Decision history for this feature
+- Related docs and memories
+
+Update only edges that changed this session.
+
+### 3. Session Memory (Learnings)
+Record what happened this session:
+- Attempted changes and outcomes
+- New patterns discovered
+- Failures and their root causes
+- Insights for next session
+
+## Update Strategy
+1. **Identify what changed**: Feature added? Bug fixed? Architecture shift?
+2. **Update key-value store**: Simple facts only (3-5 LLM calls max)
+3. **Update relevant graph edges**: Only touch affected relationships
+4. **Record session memory**: One structured entry with outcomes
+5. **Skip full re-extraction**: Keep old context unless invalidated
+
+## Efficiency Gains
+- Instead of 20 LLM calls to re-extract everything → 3-5 calls to update what changed
+- Fast lookup of facts (key-value) vs regenerating on every query
+- Session memory acts as delta, not full recompute
+- Over time, context is progressively refined, not reset
+
+## When to Refresh Fully
+Only refresh full context if:
+- Project structure fundamentally changed (new monorepo, major refactor)
+- Core tech stack changed
+- You notice selective updates are accumulating errors
 """,
         ".ai-docs/KNOWLEDGE-VAULT.md": """---
     title: Knowledge Vault Guide
