@@ -1243,6 +1243,33 @@ def ask_new_project_details() -> dict:
     fw_raw = input("Frameworks (comma separated, e.g. React,FastAPI): ").strip()
     test_raw = input("Testing tools (comma separated, e.g. vitest,pytest): ").strip()
     lint_raw = input("Lint/format tools (comma separated, e.g. eslint,prettier,ruff): ").strip()
+
+    # Ask about compliance level
+    print("\n" + "="*70)
+    print("COMPLIANCE LEVEL SELECTION")
+    print("="*70)
+    print("\nChoose the depth of compliance documentation:")
+    print("\n  Level 1: Checklists & Requirements")
+    print("    - Compliance checklists with requirement items")
+    print("    - Security best practices checklist")
+    print("    - Risk assessment template")
+    print("    - Good for: Small teams, initial audit prep")
+    print("\n  Level 2: Scanning & Validation")
+    print("    - All of Level 1, plus:")
+    print("    - Code scanning rules (security patterns to detect)")
+    print("    - Configuration validation scripts")
+    print("    - Dependency audit commands")
+    print("    - Good for: CI/CD integration, ongoing validation")
+    print("\n  Level 3: Patterns & Implementation Examples")
+    print("    - All of Level 2, plus:")
+    print("    - Working code examples (Python, Node.js, Go)")
+    print("    - Implementation patterns for each requirement")
+    print("    - Acceptance criteria & test examples")
+    print("    - Good for: Enterprise teams, development guidance")
+    print("\n  Level 0: Skip (no compliance docs)")
+    print("="*70)
+
+    compliance_level_raw = input("Compliance level (0/1/2/3, default 1): ").strip() or "1"
     compliance_raw = input("Compliance packs (optional comma separated: pci-dss,hipaa,soc2,gdpr,ccpa,iso27001): ").strip()
 
     agents = [a.strip() for a in agents_raw.split(",") if a.strip()] if agents_raw else list(DEFAULT_AGENTS)
@@ -1296,6 +1323,16 @@ def ask_new_project_details() -> dict:
 
     suggestions = merge_unique([], suggestions)
 
+    # Validate compliance level
+    try:
+        compliance_level = int(compliance_level_raw)
+        if compliance_level not in (0, 1, 2, 3):
+            print(f"Invalid compliance level {compliance_level}. Using default level 1.")
+            compliance_level = 1
+    except ValueError:
+        print(f"Invalid compliance level '{compliance_level_raw}'. Using default level 1.")
+        compliance_level = 1
+
     return {
         "target_os": os_value,
         "preset": preset,
@@ -1307,6 +1344,7 @@ def ask_new_project_details() -> dict:
         "tests": tests,
         "linting": linting,
         "compliance_keys": [pack["key"] for pack in compliance_packs],
+        "compliance_level": compliance_level,
         "suggestions": suggestions,
     }
 
@@ -1521,12 +1559,14 @@ def build_common_context(project_type: str, stack: dict, new_details: dict | Non
     target_os = GENERATOR_TARGET_OS if GENERATOR_TARGET_OS != "auto" else "auto"
     app_intent_input = "general-app"
     compliance_keys = []
+    compliance_level = 1
 
     if new_details:
         agents = new_details.get("agents") or agents
         target_os = new_details.get("target_os") or target_os
         app_intent_input = new_details.get("app_intent_input") or new_details.get("app_intent") or app_intent_input
         compliance_keys = new_details.get("compliance_keys") or []
+        compliance_level = new_details.get("compliance_level", 1)
 
     app_intent, app_intent_display, app_blueprint = resolve_app_blueprint(app_intent_input, stack)
     compliance_packs = resolve_compliance_packs(app_intent_display, compliance_keys)
@@ -1539,6 +1579,7 @@ def build_common_context(project_type: str, stack: dict, new_details: dict | Non
         "app_intent_input": app_intent_display,
         "app_blueprint": app_blueprint,
         "compliance_packs": compliance_packs,
+        "compliance_level": compliance_level,
         "package_guidance": package_guidance,
         "agents": agents,
         "stack": stack,
@@ -1829,6 +1870,7 @@ def write_metadata(project_dir: Path, ctx: dict, generated_files: list[str]) -> 
         "app_intent": ctx.get("app_intent"),
         "app_intent_input": ctx.get("app_intent_input"),
         "compliance_keys": [pack.get("key") for pack in (ctx.get("compliance_packs", []) or []) if pack.get("key")],
+        "compliance_level": ctx.get("compliance_level", 1),
         "agents": ctx["agents"],
         "stack": ctx["stack"],
         "master_prompt_sha256": hash_text(MASTER_PROMPT),
@@ -2450,6 +2492,10 @@ def parse_args() -> argparse.Namespace:
         "--compliance",
         help="Optional comma-separated compliance packs for new-project mode (e.g. pci-dss,soc2,gdpr).",
     )
+    parser.add_argument(
+        "--compliance-level",
+        help="Optional compliance documentation level for new-project mode (0=skip, 1=checklists, 2=scanning, 3=patterns).",
+    )
     parser.add_argument("--list-stack-presets", action="store_true", help="Print available stack presets and exit.")
     parser.add_argument("--list-intents", action="store_true", help="Print starter and keyword-mapped intent profiles and exit.")
     parser.add_argument("--list-compliance", action="store_true", help="Print available compliance packs and exit.")
@@ -2484,11 +2530,23 @@ def main() -> None:
         if args.non_interactive or args.intent or args.compliance:
             intent_input = (args.intent or "general-app").strip().lower()
             compliance_keys = parse_compliance_input((args.compliance or "").strip())
+
+            # Parse compliance level
+            compliance_level = 1  # default
+            if args.compliance_level:
+                try:
+                    level = int(args.compliance_level)
+                    if level in (0, 1, 2, 3):
+                        compliance_level = level
+                except ValueError:
+                    pass
+
             new_details = {
                 "target_os": GENERATOR_TARGET_OS if GENERATOR_TARGET_OS != "auto" else "auto",
                 "app_intent": slugify_intent_key(intent_input),
                 "app_intent_input": intent_input,
                 "compliance_keys": compliance_keys,
+                "compliance_level": compliance_level,
                 "agents": list(DEFAULT_AGENTS),
                 "languages": [],
                 "frameworks": [],
