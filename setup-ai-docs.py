@@ -1741,8 +1741,8 @@ Suggested commands:
 - Laravel: use policies, form requests, queues, and database transactions for critical flows.
 - Python (FastAPI/Django): validate contracts with pydantic/dataclasses and secure async/background tasks.
 
-## Kiro Patterns (Spec-Driven & Parallel Agents)
-This project supports Kiro-style workflows:
+## Spec-Driven Development
+This project supports advanced development workflows:
 - **Executable Specs**: Turn requirements into validated specifications (see `.ai-docs/EXECUTABLE-SPECS.md`)
 - **Code Validation**: Validate correctness beyond unit tests (see `.ai-docs/CODE-VALIDATION.md`)
 - **Parallel Agents**: Coordinate multiple agents with session-based learning (see `.ai-docs/PARALLEL-AGENTS.md`)
@@ -2218,8 +2218,8 @@ Use this file to propose improvements to generated AI docs.
     """,
         ".ai-docs/EXECUTABLE-SPECS.md": """---
 title: Executable Specs Guide
-type: kiro-patterns
-tags: [ai-docs, specs, validation, kiro]
+type: spec-patterns
+tags: [ai-docs, specs, validation]
 ---
 
 # Executable Specs
@@ -2264,8 +2264,8 @@ Turn prompts into executable specifications that guide and validate implementati
 """,
         ".ai-docs/CODE-VALIDATION.md": """---
 title: Code Validation Strategy
-type: kiro-patterns
-tags: [ai-docs, validation, correctness, kiro]
+type: spec-patterns
+tags: [ai-docs, validation, correctness]
 ---
 
 # Code Validation
@@ -2294,8 +2294,8 @@ Validate code correctness beyond unit tests.
 """,
         ".ai-docs/PARALLEL-AGENTS.md": """---
 title: Parallel Agents & Session Learning
-type: kiro-patterns
-tags: [ai-docs, agents, learning, kiro]
+type: spec-patterns
+tags: [ai-docs, agents, learning]
 ---
 
 # Parallel Agents & Session Learning
