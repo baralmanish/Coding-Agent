@@ -1480,17 +1480,12 @@ def is_managed_generated_file(path: str) -> bool:
     managed_roots = {{
         "AGENTS.md",
         "AI_DOCS_INDEX.md",
-        "CLAUDE.md",
-        "CODEX.md",
-        "ANTIGRAVITY.md",
         ".cursor/rules/project.mdc",
         ".github/copilot-instructions.md",
         ".specs/README.md",
         ".specs/memory.md",
         ".specs/features/core/spec.md",
         ".specs/features/core/memory.md",
-        ".specs/features/template/spec-template.md",
-        ".ai-docs/TOKEN-EFFICIENCY.md",
         ".ai-docs/MEMORY-MANAGEMENT.md",
         ".ai-docs/CODE-GENERATION-STANDARDS.md",
     }}
@@ -1746,13 +1741,21 @@ This project supports advanced development workflows:
 - **Executable Specs**: Turn requirements into validated specifications (see `.ai-docs/EXECUTABLE-SPECS.md`)
 - **Code Validation**: Validate correctness beyond unit tests (see `.ai-docs/CODE-VALIDATION.md`)
 - **Parallel Agents**: Coordinate multiple agents with session-based learning (see `.ai-docs/PARALLEL-AGENTS.md`)
-- **Selective Memory**: Minimize context refresh cost by updating only changed facts (see `.ai-docs/SELECTIVE-MEMORY-MANAGEMENT.md`)
 
 Recommended approach:
 1. Define executable specs in `.specs/` folder with acceptance criteria and assertions.
 2. Implement code to satisfy assertions (faster than iterative fixing).
 3. Run validation suite to find bugs unit tests miss.
 4. Coordinate work across agents using shared specs and session memory.
+
+## Memory Management Strategy
+Use the three-layer memory approach (key-value store + selective graph + session memory) to minimize LLM calls:
+- Track only what changed each session (3-5 LLM calls vs 20+ for full re-extraction)
+- Use key-value pairs for fast fact lookup
+- Update selective graph edges only when relationships change
+- Record session memory for continuous improvement
+
+See `.ai-docs/MEMORY-MANAGEMENT.md` for full details.
 """
 
 
@@ -1844,41 +1847,8 @@ Follow AGENTS.md first.
 {{langs}}
 """
 
-    if "claude-code" in agents or "claude" in agents:
-        files["CLAUDE.md"] = f"""# Claude Code Guide
-
-Use this repository with AGENTS.md as canonical policy.
-
-## Must Do
-- Keep patches small and reversible.
-- Explain assumptions and edge cases.
-- Update tests and docs with behavior changes.
-- Favor deterministic and maintainable solutions.
-"""
-
-    if "openai-codex" in agents or "codex" in agents:
-        files["CODEX.md"] = f"""# OpenAI Codex Guide
-
-This project uses AGENTS.md as the unified standard.
-
-## Codex Working Contract
-- Read project context before editing.
-- Prefer minimal, high-confidence diffs.
-- Run available validation commands before completion.
-- Document important decisions in PR/commit notes.
-"""
-
-    if "antigravity" in agents:
-        files["ANTIGRAVITY.md"] = f"""# Antigravity Agent Guide
-
-## Purpose
-Agent-specific execution guidance compatible with the repository standards in AGENTS.md.
-
-## Operating Rules
-- Preserve coding conventions and architecture.
-- Keep generated output deterministic and review-friendly.
-- Pair code changes with tests and concise documentation updates.
-"""
+    # Note: Claude Code, OpenAI Codex, and Antigravity agents should reference AGENTS.md
+    # Other agent-specific guidance is documented in .cursor/rules/project.mdc
 
     return files
 
@@ -2125,41 +2095,8 @@ def generate_files(project_dir: Path, ctx: dict, markdown_context: list[dict], c
         "AGENTS.md": generate_agents_md(ctx),
         ".ai-docs/APP-BLUEPRINT.md": generate_app_blueprint_md(ctx),
         ".ai-docs/CONTEXT-SNAPSHOT.md": generate_context_snapshot(ctx, markdown_context),
-        ".ai-docs/FEEDBACK.md": """# Feedback Loop
 
-Use this file to propose improvements to generated AI docs.
 
-## Template
-- Date:
-- Area:
-- Problem:
-- Suggested change:
-- Expected outcome:
-""",
-        ".ai-docs/ROADMAP.md": """# AI Docs Roadmap
-
-## Near-Term
-- Keep agent docs aligned with project stack and standards.
-- Add project-specific examples for common workflows.
-
-## Mid-Term
-- Automate doc freshness checks in CI.
-- Add onboarding shortcuts for new contributors.
-""",
-        ".ai-docs/SECURITY.md": """# AI Docs Security Notes
-
-- Never include secrets, keys, or credentials in generated docs.
-- Require human review for changes touching auth, permissions, or compliance.
-- Run dependency and vulnerability scans in CI.
-""",
-        ".ai-docs/SPEC-DRIVEN-DEVELOPMENT.md": """# Spec-Driven Development
-
-## Pattern
-1. Define requirement and acceptance criteria.
-2. Write tests from criteria.
-3. Implement minimal code to satisfy tests.
-4. Update docs and traceability notes.
-""",
         ".ai-docs/MASTER_PROMPT_REFERENCE.md": MASTER_PROMPT,
         ".ai-docs/TOKEN-EFFICIENCY.md": """# Token Efficiency Guide
 
@@ -2185,15 +2122,65 @@ Use this file to propose improvements to generated AI docs.
     Define how project memory is captured and maintained for durable agent behavior.
 
     ## Memory Layers
-    - Global/canonical: AGENTS.md and AI_DOCS_INDEX.md
-    - Project operational memory: .ai-docs/*.md
-    - Feature memory: .specs/features/<feature>/memory.md
+    - **Global/canonical**: AGENTS.md and AI_DOCS_INDEX.md
+    - **Project operational memory**: .ai-docs/*.md
+    - **Feature memory**: .specs/features/<feature>/memory.md
+
+    ## Three-Layer Memory Strategy
+
+    ### 1. Key-Value Store (Fast Lookup)
+    Store frequently accessed facts as simple key-value pairs:
+    ```json
+    {{
+      "project_name": "MyApp",
+      "primary_language": "TypeScript",
+      "primary_framework": "Next.js",
+      "main_db": "PostgreSQL",
+      "critical_paths": ["auth", "payments", "notifications"]
+    }}
+    ```
+    **Cost**: Single LLM call per update, instant retrieval.
+
+    ### 2. Selective Graph (Structured Context)
+    Keep relationships between concepts lightweight:
+    - Current feature specs and their status
+    - Known bugs and their root causes
+    - Decision history for this feature
+    - Related docs and memories
+
+    Update only edges that changed this session.
+
+    ### 3. Session Memory (Learnings)
+    Record what happened this session:
+    - Attempted changes and outcomes
+    - New patterns discovered
+    - Failures and their root causes
+    - Insights for next session
 
     ## Operating Rules
     1. Keep memory files concise and decision-focused.
     2. Record assumptions, decisions, and unresolved questions.
     3. Update feature memory whenever feature specs or behavior changes.
     4. Archive stale decisions rather than deleting rationale.
+
+    ## Update Strategy
+    1. **Identify what changed**: Feature added? Bug fixed? Architecture shift?
+    2. **Update key-value store**: Simple facts only (3-5 LLM calls max)
+    3. **Update relevant graph edges**: Only touch affected relationships
+    4. **Record session memory**: One structured entry with outcomes
+    5. **Skip full re-extraction**: Keep old context unless invalidated
+
+    ## Efficiency Gains
+    - Instead of 20 LLM calls to re-extract everything → 3-5 calls to update what changed
+    - Fast lookup of facts (key-value) vs regenerating on every query
+    - Session memory acts as delta, not full recompute
+    - Over time, context is progressively refined, not reset
+
+    ## When to Refresh Fully
+    Only refresh full context if:
+    - Project structure fundamentally changed (new monorepo, major refactor)
+    - Core tech stack changed
+    - You notice selective updates are accumulating errors
     """,
         ".ai-docs/CODE-GENERATION-STANDARDS.md": """# Code Generation Standards
 
@@ -2333,69 +2320,6 @@ After each coding session, record:
 - Share learnings across agents via memory notes.
 - Track validation improvement over time.
 """,
-        ".ai-docs/SELECTIVE-MEMORY-MANAGEMENT.md": """---
-title: Selective Memory Management
-type: memory-optimization
-tags: [ai-docs, memory, optimization, context]
----
-
-# Selective Memory Management
-
-Minimize LLM calls and token usage by updating only what changed, not the entire context.
-
-## Core Principle
-Instead of re-extracting all context every session, track and update only the changed parts.
-
-## Three-Layer Memory
-
-### 1. Key-Value Store (Fast Lookup)
-Store frequently accessed facts as simple key-value pairs:
-```json
-{{
-  "project_name": "MyApp",
-  "primary_language": "TypeScript",
-  "primary_framework": "Next.js",
-  "main_db": "PostgreSQL",
-  "critical_paths": ["auth", "payments", "notifications"]
-}}
-```
-**Cost**: Single LLM call per update, instant retrieval.
-
-### 2. Selective Graph (Structured Context)
-Keep relationships between concepts lightweight:
-- Current feature specs and their status
-- Known bugs and their root causes
-- Decision history for this feature
-- Related docs and memories
-
-Update only edges that changed this session.
-
-### 3. Session Memory (Learnings)
-Record what happened this session:
-- Attempted changes and outcomes
-- New patterns discovered
-- Failures and their root causes
-- Insights for next session
-
-## Update Strategy
-1. **Identify what changed**: Feature added? Bug fixed? Architecture shift?
-2. **Update key-value store**: Simple facts only (3-5 LLM calls max)
-3. **Update relevant graph edges**: Only touch affected relationships
-4. **Record session memory**: One structured entry with outcomes
-5. **Skip full re-extraction**: Keep old context unless invalidated
-
-## Efficiency Gains
-- Instead of 20 LLM calls to re-extract everything → 3-5 calls to update what changed
-- Fast lookup of facts (key-value) vs regenerating on every query
-- Session memory acts as delta, not full recompute
-- Over time, context is progressively refined, not reset
-
-## When to Refresh Fully
-Only refresh full context if:
-- Project structure fundamentally changed (new monorepo, major refactor)
-- Core tech stack changed
-- You notice selective updates are accumulating errors
-""",
         ".ai-docs/KNOWLEDGE-VAULT.md": """---
     title: Knowledge Vault Guide
 type: knowledge-map
@@ -2491,25 +2415,6 @@ related:
     ## Linked Notes
     - [[.specs/memory.md]]
     - [[.specs/features/core/spec.md]]
-    """,
-        ".specs/features/template/spec-template.md": """# Feature Spec Template
-
-    ## Goal
-    <what outcome this feature should deliver>
-
-    ## Non-Goals
-    <what is intentionally out of scope>
-
-    ## Acceptance Criteria
-    1. ...
-    2. ...
-
-    ## Test Mapping
-    - AC1 -> <test>
-    - AC2 -> <test>
-
-    ## Risks
-    - ...
     """,
     }}
 
