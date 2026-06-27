@@ -2129,6 +2129,376 @@ related:
     return files, index_content
 
 
+def generate_level_2_compliance_scanning(compliance_packs: list[dict]) -> dict[str, str]:
+    """Generate Level 2 compliance scanning rules and validation scripts."""
+    files = {{}}
+    
+    # PCI-DSS scanning rules
+    pci_packs = [p for p in compliance_packs if p.get("key") == "pci-dss"]
+    if pci_packs:
+        files[".specs/compliance/pci-dss-scanning.md"] = """---
+title: PCI-DSS Scanning & Validation Rules
+type: compliance-scanning
+tags: [compliance, pci-dss, scanning, security]
+related:
+  - [[.specs/memory.md]]
+---
+
+# PCI-DSS: Scanning & Validation (Level 2)
+
+Automated scanning rules and validation for payment security.
+
+## Code Scanning Rules
+
+### Rule: Plaintext Secrets in Code
+- Search: regex patterns for hardcoded passwords, API keys, tokens
+- Tools: `truffleHog`, `detect-secrets`, `gitleaks`
+- Command: `gitleaks detect --source git --verbose`
+- Fail: Any match found
+- Exception: Test data marked with `@test-only` comments
+
+### Rule: Encryption Algorithm Validation
+- Search: `malloc`, `strcpy`, `md5`, `sha1` (weak hashing)
+- Tools: `semgrep`, `sonarqube`
+- Command: `semgrep --config=p/security-audit --json`
+- Fail: Weak crypto detected in production code
+- Exception: Legacy compatibility layer with deprecation notice
+
+### Rule: SQL Injection Risk Patterns
+- Search: Raw SQL concatenation without parameterization
+- Tools: `sqlcheck`, `semgrep`
+- Command: `semgrep --config=p/owasp-top-ten`
+- Fail: Unparameterized queries in user-input handling paths
+- Exception: Schema migrations (pre-approved)
+
+## Configuration Validation
+
+### Checklist
+- [ ] TLS 1.2+ enforced for all cardholder data connections
+- [ ] Certificate pinning implemented for API clients
+- [ ] HSTS headers set (min-age: 31536000)
+- [ ] CSP headers restrict inline scripts
+- [ ] Session cookies marked Secure + HttpOnly + SameSite=Strict
+
+### Validation Script
+```bash
+#!/bin/bash
+# Check TLS version
+openssl s_client -connect $HOST:443 -tls1_2 &>/dev/null || echo "FAIL: TLS 1.2 not supported"
+
+# Check HSTS header
+curl -I https://$HOST | grep -i "strict-transport-security" || echo "FAIL: HSTS missing"
+
+# Check CSP header
+curl -I https://$HOST | grep -i "content-security-policy" || echo "WARN: CSP missing"
+```
+
+## Dependency Audit Commands
+
+### Pre-Commit
+```bash
+npm audit --audit-level=moderate
+pip install safety && safety check
+composer audit
+```
+
+### CI/CD Pipeline
+```bash
+# Node.js
+npm ci && npm audit --production
+
+# Python
+pip install pip-audit && pip-audit
+
+# Ruby
+bundle audit check --update
+```
+
+### Incident Response
+```bash
+# Find vulnerable dependency usage
+npm ls vulnerable-package
+grep -r "vulnerable-package" src/
+
+# Force audit on specific package
+npm view vulnerable-package vulnerabilities
+```
+
+## Remediation Path
+1. Scan code nightly and on every PR
+2. Block merge if FAIL rules detected
+3. Escalate HIGH/CRITICAL findings to security team
+4. Document exceptions in compliance log
+5. Re-scan after remediation
+"""
+    
+    # HIPAA scanning rules
+    hipaa_packs = [p for p in compliance_packs if p.get("key") == "hipaa"]
+    if hipaa_packs:
+        files[".specs/compliance/hipaa-scanning.md"] = """---
+title: HIPAA Scanning & Validation Rules
+type: compliance-scanning
+tags: [compliance, hipaa, scanning, security]
+related:
+  - [[.specs/memory.md]]
+---
+
+# HIPAA: Scanning & Validation (Level 2)
+
+Automated scanning for PHI protection and audit logging.
+
+## Code Scanning Rules
+
+### Rule: PHI Data Exposure
+- Search: PHI patterns (SSN, MRN, DOB) logged without redaction
+- Tools: `semgrep`, custom regex scanner
+- Command: `grep -r "\\d{{3}}-\\d{{2}}-\\d{{4}}" src/ --include="*.py" --include="*.js"`
+- Fail: Unredacted PHI in logs or error messages
+- Exception: Audit log with encrypted storage
+
+### Rule: Unencrypted PHI Storage
+- Search: Database access without encryption layer
+- Tools: `semgrep`, `sonarqube`
+- Command: `semgrep --config=p/hipaa`
+- Fail: Direct PHI read without decryption
+- Exception: Encrypted database connection with key rotation
+
+### Rule: Unauthorized Access Detection
+- Search: PHI queries without auth check
+- Tools: `semgrep`
+- Command: `grep -r "SELECT.*FROM.*patient" src/ | grep -v "WHERE.*user_id"`
+- Fail: Query missing user/role authorization
+- Exception: Backend-only scheduled tasks with audit logging
+
+## Configuration Validation
+
+### Checklist
+- [ ] All PHI access logged with user ID, timestamp, action
+- [ ] Logs stored in immutable audit system (Splunk, CloudTrail, etc.)
+- [ ] Encryption keys rotated quarterly
+- [ ] Access reviewed monthly for anomalies
+- [ ] Breach response plan documented and tested
+
+### Validation Script
+```bash
+#!/bin/bash
+# Check audit logging enabled
+grep -r "audit" config/ | grep -i "enabled.*true" || echo "FAIL: Audit logging disabled"
+
+# Check encryption in transit
+openssl s_client -connect db.example.com:5432 -tls1_2 &>/dev/null || echo "FAIL: DB TLS not enabled"
+
+# Verify backup encryption
+aws s3api head-object --bucket backups --key latest.sql.enc --sse | grep -i aes256 || echo "FAIL: Backups not encrypted"
+```
+
+## Dependency Audit Commands
+
+### Pre-Commit
+```bash
+npm audit
+pip install bandit && bandit -r src/
+```
+
+### CI/CD Pipeline
+```bash
+# Check for vulnerable health libraries
+npm audit | grep -i crypto
+pip-audit --desc
+```
+
+## Remediation Path
+1. Scan on every commit and nightly
+2. Immediate escalation for PHI exposure
+3. Incident response team notified
+4. Audit trail preserved for investigation
+5. Patient notification if required
+"""
+    
+    # GDPR scanning rules
+    gdpr_packs = [p for p in compliance_packs if p.get("key") == "gdpr"]
+    if gdpr_packs:
+        files[".specs/compliance/gdpr-scanning.md"] = """---
+title: GDPR Scanning & Validation Rules
+type: compliance-scanning
+tags: [compliance, gdpr, scanning, privacy]
+related:
+  - [[.specs/memory.md]]
+---
+
+# GDPR: Scanning & Validation (Level 2)
+
+Automated scanning for personal data handling and retention policies.
+
+## Code Scanning Rules
+
+### Rule: Unauthorized Data Collection
+- Search: Network requests to ad networks, trackers without consent
+- Tools: `urlscan`, network proxy analysis
+- Command: Monitor requests to known tracker domains
+- Fail: Tracking requests without user opt-in
+- Exception: Analytics with anonymized data and consent banner
+
+### Rule: Missing Data Deletion
+- Search: Data queries without retention check
+- Tools: `semgrep`, custom scanner
+- Command: `grep -r "User.objects.all()" src/ | grep -v "filter(created_at""`
+- Fail: Query missing automatic deletion logic
+- Exception: Data with active retention policy
+
+### Rule: PII in Transit Unencrypted
+- Search: HTTP (not HTTPS) requests with personal data
+- Tools: Network analysis tools
+- Command: `grep -r "http://" config/ | grep -v localhost`
+- Fail: Unencrypted data transmission
+- Exception: None
+
+## Configuration Validation
+
+### Checklist
+- [ ] Consent tracking: user opt-ins recorded and logged
+- [ ] Retention policy: auto-delete configured for all personal data types
+- [ ] Data export: user can export personal data in standardized format
+- [ ] Right to be forgotten: user deletion purges all linked data
+- [ ] DPA/contracts: Data processing agreements with all vendors
+
+### Validation Script
+```bash
+#!/bin/bash
+# Check retention policy exists
+ls .specs/data-retention.md || echo "FAIL: No retention policy"
+
+# Check consent logging
+grep -r "consent" database_schema.sql | grep -i timestamp || echo "FAIL: Consent timestamp missing"
+
+# Verify deletion script exists and is tested
+test -x scripts/gdpr-deletion.sh || echo "FAIL: GDPR deletion script missing"
+```
+
+## Dependency Audit Commands
+
+### Pre-Commit
+```bash
+npm audit
+pip install privacy-check && privacy-check
+```
+
+### CI/CD Pipeline
+```bash
+# Scan for tracking code
+npm ls | grep -i "google-analytics\\|mixpanel\\|amplitude"
+
+# Verify encryption
+grep -r "https://" config/ | wc -l
+```
+
+## Remediation Path
+1. Scan on PR merge
+2. Consent audit quarterly
+3. Data retention cleanup monthly
+4. Export/deletion features tested in UAT
+5. GDPR impact assessments updated yearly
+"""
+    
+    # SOC2 scanning rules
+    soc2_packs = [p for p in compliance_packs if p.get("key") == "soc2"]
+    if soc2_packs:
+        files[".specs/compliance/soc2-scanning.md"] = """---
+title: SOC2 Scanning & Validation Rules
+type: compliance-scanning
+tags: [compliance, soc2, scanning, security]
+related:
+  - [[.specs/memory.md]]
+---
+
+# SOC2: Scanning & Validation (Level 2)
+
+Automated scanning for access controls, change management, and availability.
+
+## Code Scanning Rules
+
+### Rule: Unapproved Production Changes
+- Search: Direct DB access without change ticket
+- Tools: Git hook analysis, deployment tracking
+- Command: `git log --oneline --grep="TICKET" | wc -l`
+- Fail: Commits without ticket reference
+- Exception: Hotfixes with post-incident review
+
+### Rule: Missing Audit Logs
+- Search: User/admin actions without logging
+- Tools: `semgrep`, code review
+- Command: `grep -r "@admin\\|@protected" src/ | grep -v "log\\|audit"`
+- Fail: Protected endpoint without audit trail
+- Exception: Health check endpoints
+
+### Rule: Hardcoded Credentials
+- Search: API keys, DB passwords in config
+- Tools: `gitleaks`, `detect-secrets`
+- Command: `git secrets --scan`
+- Fail: Credential found in source
+- Exception: None (use secrets vault)
+
+## Configuration Validation
+
+### Checklist
+- [ ] All user access logged with timestamp, action, result
+- [ ] Change log captures: who, what, when, approval ticket
+- [ ] Availability monitoring: uptime tracked, SLA documented
+- [ ] Incident response: escalation procedures documented
+- [ ] Access review: quarterly user/role audit
+- [ ] Security testing: penetration testing 1x/year minimum
+
+### Validation Script
+```bash
+#!/bin/bash
+# Check audit logging table exists
+sqlite3 audit.db ".tables" | grep -i audit || echo "FAIL: Audit table missing"
+
+# Check change management system
+curl https://jira.example.com/rest/api/2/search?jql="project=CHANGE" || echo "FAIL: Change tracking unavailable"
+
+# Verify monitoring enabled
+curl https://monitoring.example.com/api/status | grep -i "operational" || echo "FAIL: Monitoring down"
+```
+
+## Dependency Audit Commands
+
+### Pre-Commit
+```bash
+npm audit
+pip install pip-audit && pip-audit
+bundle audit check
+```
+
+### CI/CD Pipeline
+```bash
+# Check for security headers
+npm audit | grep critical
+
+# SBOM generation for vendor review
+cyclonedx-npm -o sbom.xml
+```
+
+### Post-Deployment
+```bash
+# Verify logs are persisted
+tail -f /var/log/application.log | grep -i "access\\|change"
+
+# Confirm backup integrity
+test -f /backup/latest.sql.gz && echo "OK" || echo "FAIL: Backup missing"
+```
+
+## Remediation Path
+1. Scan on every commit
+2. Change tickets auto-rejected without approval
+3. Audit logs sent to immutable storage (S3, syslog)
+4. Access reviews tracked in compliance system
+5. Annual SOC2 readiness assessment
+"""
+    
+    return files
+
+
 def generate_files(project_dir: Path, ctx: dict, markdown_context: list[dict], check_mode: bool = False) -> tuple[list[str], list[str]]:
     generated = []
     changed_files = []
@@ -2464,6 +2834,13 @@ related:
     feature_files, specs_memory_index = build_feature_spec_files(feature_names)
     common_files[".specs/memory.md"] = specs_memory_index
     common_files.update(feature_files)
+
+    # Add Level 2 compliance scanning rules if configured
+    compliance_level = ctx.get("compliance_level", 1)
+    compliance_packs = ctx.get("compliance_packs", [])
+    if compliance_level >= 2 and compliance_packs:
+        level_2_files = generate_level_2_compliance_scanning(compliance_packs)
+        common_files.update(level_2_files)
 
     agent_files = generate_agent_specific_docs(ctx)
     all_files = dict(common_files)
