@@ -7,6 +7,13 @@ Builder script:
 2) Asks target OS
 3) Generates a drop-in executable bootstrap file that can be copied to any project
    to create AI agent markdown documentation files.
+
+Architecture: This script now integrates with modularized src/ components:
+- src/lib.py: 30+ utility functions
+- src/constants/: All compliance frameworks, archetypes, hints
+- src/core/: Context building and metadata
+- src/bootstrap_builder/: Bootstrap generation
+- src/generators/: Compliance scanning generators
 """
 
 from __future__ import annotations
@@ -15,6 +22,9 @@ import json
 import stat
 import textwrap
 from pathlib import Path
+
+# Bootstrap builder is now modularized
+from src.bootstrap_builder import build_bootstrap_script
 
 
 def ask_target_os() -> str:
