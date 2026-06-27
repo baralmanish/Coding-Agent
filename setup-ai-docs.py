@@ -23,8 +23,27 @@ import stat
 import textwrap
 from pathlib import Path
 
-# Bootstrap builder is now modularized
-from src.bootstrap_builder import build_bootstrap_script
+# Modularized imports from src/
+from src.lib import (
+    resolve_app_blueprint,
+    resolve_compliance_packs,
+    resolve_package_guidance,
+    merge_unique,
+    slugify_intent_key,
+    parse_compliance_input,
+    keyword_confidence_score,
+    compute_framework_intent_bonus,
+)
+from src.constants import (
+    COMPLIANCE_PACKS,
+    COMPLIANCE_ALIASES,
+    APP_ARCHETYPES,
+    INTENT_KEYWORD_BLUEPRINTS,
+    FRAMEWORK_INTENT_HINTS,
+    PACKAGE_GUIDANCE,
+    SECURITY_AUDIT_COMMANDS,
+)
+from src.core import build_common_context, write_metadata
 
 
 def ask_target_os() -> str:
@@ -840,6 +859,39 @@ def current_script_sha256() -> str:
     return hash_text(content)
 
 
+def merge_unique(existing: list[str], incoming: list[str]) -> list[str]:
+    merged = []
+    seen = set()
+    for item in (existing or []) + (incoming or []):
+        value = item.strip()
+        if not value:
+            continue
+        key = value.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(value)
+    return merged
+
+
+def slugify_intent_key(value: str) -> str:
+    key = re.sub(r"[^a-z0-9]+", "-", (value or "").strip().lower()).strip("-")
+    return key or "general-app"
+
+
+def parse_compliance_input(raw: str) -> list[str]:
+    if not raw.strip():
+        return []
+
+    items = []
+    for part in raw.split(","):
+        key = slugify_intent_key(part)
+        mapped = COMPLIANCE_ALIASES.get(key)
+        if mapped:
+            items.append(mapped)
+    return merge_unique([], items)
+
+
 def detect_project_type(project_dir: Path) -> str:
     manifest_candidates = [
         "package.json",
@@ -1058,218 +1110,6 @@ def gather_existing_markdown_context(project_dir: Path, max_files: int = 20) -> 
         if len(docs) >= max_files:
             break
     return docs
-
-
-def merge_unique(existing: list[str], incoming: list[str]) -> list[str]:
-    merged = []
-    seen = set()
-    for item in (existing or []) + (incoming or []):
-        value = item.strip()
-        if not value:
-            continue
-        key = value.lower()
-        if key in seen:
-            continue
-        seen.add(key)
-        merged.append(value)
-    return merged
-
-
-def slugify_intent_key(value: str) -> str:
-    key = re.sub(r"[^a-z0-9]+", "-", (value or "").strip().lower()).strip("-")
-    return key or "general-app"
-
-
-def parse_compliance_input(raw: str) -> list[str]:
-    if not raw.strip():
-        return []
-
-    items = []
-    for part in raw.split(","):
-        key = slugify_intent_key(part)
-        mapped = COMPLIANCE_ALIASES.get(key)
-        if mapped:
-            items.append(mapped)
-    return merge_unique([], items)
-
-
-def resolve_compliance_packs(app_intent_input: str, selected_keys: list[str] | None = None) -> list[dict]:
-    selected = merge_unique([], selected_keys or [])
-    low = (app_intent_input or "").lower()
-
-    for pack_key, pack in COMPLIANCE_PACKS.items():
-        trigger_words = pack.get("trigger_keywords", [])
-        if any(word in low for word in trigger_words):
-            selected = merge_unique(selected, [pack_key])
-
-    resolved = []
-    for key in selected:
-        pack = COMPLIANCE_PACKS.get(key)
-        if not pack:
-            continue
-        resolved.append({{
-            "key": key,
-            "name": pack.get("name", key.upper()),
-            "checks": pack.get("checks", []),
-        }})
-
-    return resolved
-
-
-def resolve_package_guidance(stack: dict) -> dict:
-    frameworks = stack.get("frameworks", []) or []
-    package_managers = stack.get("package_managers", []) or []
-
-    recommended = []
-    avoid = []
-    matched_profiles = []
-
-    for framework in frameworks:
-        profile = PACKAGE_GUIDANCE.get(framework)
-        if not profile:
-            continue
-        matched_profiles.append(framework)
-        recommended = merge_unique(recommended, profile.get("recommended", []))
-        avoid = merge_unique(avoid, profile.get("avoid", []))
-
-    # Language-level fallbacks when no framework profile matched.
-    languages = {{item.lower() for item in (stack.get("languages", []) or [])}}
-    if not matched_profiles:
-        if "python" in languages:
-            recommended = merge_unique(recommended, ["ruff", "mypy", "pytest", "pip-audit"])
-            avoid = merge_unique(avoid, ["unmaintained python deps without recent releases"])
-        if "typescript" in languages or "javascript" in languages:
-            recommended = merge_unique(recommended, ["zod", "eslint", "prettier", "vitest"])
-            avoid = merge_unique(avoid, ["request -> use native fetch/undici", "moment -> prefer date-fns/dayjs"])
-        if "php" in languages:
-            recommended = merge_unique(recommended, ["phpstan/larastan", "php-cs-fixer"])
-            avoid = merge_unique(avoid, ["abandoned composer packages"])
-
-    audit_commands = []
-    for pm in package_managers:
-        audit_commands = merge_unique(audit_commands, SECURITY_AUDIT_COMMANDS.get(pm, []))
-
-    if not audit_commands:
-        audit_commands = ["Run ecosystem-specific vulnerability scanning before introducing new dependencies."]
-
-    return {{
-        "matched_profiles": matched_profiles,
-        "recommended_packages": recommended,
-        "avoid_packages": avoid,
-        "audit_commands": audit_commands,
-    }}
-
-
-def compute_framework_intent_bonus(stack: dict | None) -> dict[str, int]:
-    bonuses = {{}}
-    if not stack:
-        return bonuses
-
-    for framework in (stack.get("frameworks", []) or []):
-        hint = FRAMEWORK_INTENT_HINTS.get(framework, {{}})
-        for label, value in hint.items():
-            bonuses[label] = bonuses.get(label, 0) + int(value)
-    return bonuses
-
-
-def keyword_confidence_score(raw: str, keyword: str) -> tuple[int, bool]:
-    text = raw.lower()
-    k = keyword.lower()
-    if not k:
-        return 0, False
-
-    # Prefer explicit phrase or whole-word hits over loose substring matches.
-    whole_word = re.search(rf"\\b{{re.escape(k)}}\\b", text) is not None
-    if whole_word:
-        return 3, True
-    if k in text:
-        return 1, True
-    return 0, False
-
-
-def resolve_app_blueprint(app_intent_input: str | None, stack: dict | None = None) -> tuple[str, str, dict]:
-    raw = (app_intent_input or "").strip()
-    if not raw:
-        raw = "general-app"
-
-    key = slugify_intent_key(raw)
-    known = APP_ARCHETYPES.get(key)
-    framework_bonus = compute_framework_intent_bonus(stack)
-    if known:
-        known_blueprint = dict(known)
-        label = known.get("label", key)
-        known_blueprint["intent_ranking"] = [{{
-            "label": label,
-            "score": 100 + framework_bonus.get(label, 0),
-            "base_score": 100,
-            "framework_bonus": framework_bonus.get(label, 0),
-            "matched_keywords": [key],
-        }}]
-        return key, raw, known_blueprint
-
-    base = APP_ARCHETYPES["general-app"]
-    capabilities = list(base.get("capabilities", []))
-    suggestions = list(base.get("suggestions", []))
-    label = raw.title()
-    matched = False
-    ranked_matches = []
-    low = raw.lower()
-
-    for keywords, blueprint in INTENT_KEYWORD_BLUEPRINTS:
-        hit_keywords = []
-        score = 0
-        for word in keywords:
-            points, matched = keyword_confidence_score(low, word)
-            if matched:
-                hit_keywords.append(word)
-                score += points
-        if score > 0:
-            matched = True
-            resolved_label = blueprint.get("label", "Custom Profile")
-            bonus = framework_bonus.get(resolved_label, 0)
-            ranked_matches.append({{
-                "label": resolved_label,
-                "score": score + bonus,
-                "base_score": score,
-                "framework_bonus": bonus,
-                "matched_keywords": hit_keywords,
-            }})
-            capabilities = merge_unique(capabilities, blueprint.get("capabilities", []))
-            suggestions = merge_unique(suggestions, blueprint.get("suggestions", []))
-
-    if ranked_matches:
-        ranked_matches = sorted(
-            ranked_matches,
-            key=lambda item: (
-                -item["score"],
-                -item.get("framework_bonus", 0),
-                -len(item.get("matched_keywords", [])),
-                item["label"].lower(),
-            ),
-        )
-        unique_labels = []
-        seen = set()
-        for item in ranked_matches:
-            label_key = item["label"].lower().strip()
-            if not label_key or label_key in seen:
-                continue
-            seen.add(label_key)
-            unique_labels.append(item["label"])
-        label = " + ".join(unique_labels)
-
-    if matched:
-        description = f"Custom app intent '{{raw}}' matched known patterns and merged targeted guidance."
-    else:
-        description = f"Custom app intent '{{raw}}' with generalized engineering defaults."
-
-    custom = {{
-        "label": label,
-        "description": description,
-        "capabilities": capabilities,
-        "suggestions": suggestions,
-        "intent_ranking": ranked_matches,
-    }}
-    return key, raw, custom
 
 
 def ask_new_project_details() -> dict:
@@ -1607,6 +1447,185 @@ def resolve_generated_at(project_dir: Path, check_mode: bool) -> str:
             pass
 
     return now_utc()
+
+
+def resolve_compliance_packs(app_intent_input: str, selected_keys: list[str] | None = None) -> list[dict]:
+    selected = merge_unique([], selected_keys or [])
+    low = (app_intent_input or "").lower()
+
+    for pack_key, pack in COMPLIANCE_PACKS.items():
+        trigger_words = pack.get("trigger_keywords", [])
+        if any(word in low for word in trigger_words):
+            selected = merge_unique(selected, [pack_key])
+
+    resolved = []
+    for key in selected:
+        pack = COMPLIANCE_PACKS.get(key)
+        if not pack:
+            continue
+        resolved.append({{
+            "key": key,
+            "name": pack.get("name", key.upper()),
+            "checks": pack.get("checks", []),
+        }})
+
+    return resolved
+
+
+def resolve_package_guidance(stack: dict) -> dict:
+    frameworks = stack.get("frameworks", []) or []
+    package_managers = stack.get("package_managers", []) or []
+
+    recommended = []
+    avoid = []
+    matched_profiles = []
+
+    for framework in frameworks:
+        profile = PACKAGE_GUIDANCE.get(framework)
+        if not profile:
+            continue
+        matched_profiles.append(framework)
+        recommended = merge_unique(recommended, profile.get("recommended", []))
+        avoid = merge_unique(avoid, profile.get("avoid", []))
+
+    # Language-level fallbacks when no framework profile matched.
+    languages = {{item.lower() for item in (stack.get("languages", []) or [])}}
+    if not matched_profiles:
+        if "python" in languages:
+            recommended = merge_unique(recommended, ["ruff", "mypy", "pytest", "pip-audit"])
+            avoid = merge_unique(avoid, ["unmaintained python deps without recent releases"])
+        if "typescript" in languages or "javascript" in languages:
+            recommended = merge_unique(recommended, ["zod", "eslint", "prettier", "vitest"])
+            avoid = merge_unique(avoid, ["request -> use native fetch/undici", "moment -> prefer date-fns/dayjs"])
+        if "php" in languages:
+            recommended = merge_unique(recommended, ["phpstan/larastan", "php-cs-fixer"])
+            avoid = merge_unique(avoid, ["abandoned composer packages"])
+
+    audit_commands = []
+    for pm in package_managers:
+        audit_commands = merge_unique(audit_commands, SECURITY_AUDIT_COMMANDS.get(pm, []))
+
+    if not audit_commands:
+        audit_commands = ["Run ecosystem-specific vulnerability scanning before introducing new dependencies."]
+
+    return {{
+        "matched_profiles": matched_profiles,
+        "recommended_packages": recommended,
+        "avoid_packages": avoid,
+        "audit_commands": audit_commands,
+    }}
+
+
+def compute_framework_intent_bonus(stack: dict | None) -> dict[str, int]:
+    bonuses = {{}}
+    if not stack:
+        return bonuses
+
+    for framework in (stack.get("frameworks", []) or []):
+        hint = FRAMEWORK_INTENT_HINTS.get(framework, {{}})
+        for label, value in hint.items():
+            bonuses[label] = bonuses.get(label, 0) + int(value)
+    return bonuses
+
+
+def keyword_confidence_score(raw: str, keyword: str) -> tuple[int, bool]:
+    text = raw.lower()
+    k = keyword.lower()
+    if not k:
+        return 0, False
+
+    # Prefer explicit phrase or whole-word hits over loose substring matches.
+    whole_word = re.search(rf"\\b{{re.escape(k)}}\\b", text) is not None
+    if whole_word:
+        return 3, True
+    if k in text:
+        return 1, True
+    return 0, False
+
+
+def resolve_app_blueprint(app_intent_input: str | None, stack: dict | None = None) -> tuple[str, str, dict]:
+    raw = (app_intent_input or "").strip()
+    if not raw:
+        raw = "general-app"
+
+    key = slugify_intent_key(raw)
+    known = APP_ARCHETYPES.get(key)
+    framework_bonus = compute_framework_intent_bonus(stack)
+    if known:
+        known_blueprint = dict(known)
+        label = known.get("label", key)
+        known_blueprint["intent_ranking"] = [{{
+            "label": label,
+            "score": 100 + framework_bonus.get(label, 0),
+            "base_score": 100,
+            "framework_bonus": framework_bonus.get(label, 0),
+            "matched_keywords": [key],
+        }}]
+        return key, raw, known_blueprint
+
+    base = APP_ARCHETYPES["general-app"]
+    capabilities = list(base.get("capabilities", []))
+    suggestions = list(base.get("suggestions", []))
+    label = raw.title()
+    matched = False
+    ranked_matches = []
+    low = raw.lower()
+
+    for keywords, blueprint in INTENT_KEYWORD_BLUEPRINTS:
+        hit_keywords = []
+        score = 0
+        for word in keywords:
+            points, matched = keyword_confidence_score(low, word)
+            if matched:
+                hit_keywords.append(word)
+                score += points
+        if score > 0:
+            matched = True
+            resolved_label = blueprint.get("label", "Custom Profile")
+            bonus = framework_bonus.get(resolved_label, 0)
+            ranked_matches.append({{
+                "label": resolved_label,
+                "score": score + bonus,
+                "base_score": score,
+                "framework_bonus": bonus,
+                "matched_keywords": hit_keywords,
+            }})
+            capabilities = merge_unique(capabilities, blueprint.get("capabilities", []))
+            suggestions = merge_unique(suggestions, blueprint.get("suggestions", []))
+
+    if ranked_matches:
+        ranked_matches = sorted(
+            ranked_matches,
+            key=lambda item: (
+                -item["score"],
+                -item.get("framework_bonus", 0),
+                -len(item.get("matched_keywords", [])),
+                item["label"].lower(),
+            ),
+        )
+        unique_labels = []
+        seen = set()
+        for item in ranked_matches:
+            label_key = item["label"].lower().strip()
+            if not label_key or label_key in seen:
+                continue
+            seen.add(label_key)
+            unique_labels.append(item["label"])
+        label = " + ".join(unique_labels)
+
+    if matched:
+        description = f"Custom app intent '{{raw}}' matched known patterns and merged targeted guidance."
+    else:
+        description = f"Custom app intent '{{raw}}' with generalized engineering defaults."
+
+    custom = {{
+        "label": label,
+        "description": description,
+        "capabilities": capabilities,
+        "suggestions": suggestions,
+        "intent_ranking": ranked_matches,
+    }}
+    return key, raw, custom
 
 
 def build_common_context(project_type: str, stack: dict, new_details: dict | None, generated_at: str) -> dict:

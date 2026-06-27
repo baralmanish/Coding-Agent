@@ -22,9 +22,11 @@ except Exception:
     tomllib = None
 
 from .constants import (
+    APP_ARCHETYPES,
     COMPLIANCE_ALIASES,
     COMPLIANCE_PACKS,
     FRAMEWORK_INTENT_HINTS,
+    INTENT_KEYWORD_BLUEPRINTS,
     PACKAGE_GUIDANCE,
     SECURITY_AUDIT_COMMANDS,
 )
@@ -468,3 +470,244 @@ def detect_stack(project_dir: Path) -> dict[str, Any]:
         "packages": sorted(packages),
         "scripts": scripts,
     }
+
+
+# ============================================================================
+# APP INTENT & COMPLIANCE RESOLUTION
+# ============================================================================
+
+
+def merge_unique(existing: list[str], incoming: list[str]) -> list[str]:
+    """Merge two lists, removing duplicates and preserving order."""
+    merged = []
+    seen = set()
+    for item in (existing or []) + (incoming or []):
+        value = item.strip()
+        if not value:
+            continue
+        key = value.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(value)
+    return merged
+
+
+def slugify_intent_key(value: str) -> str:
+    """Convert intent string to slug key."""
+    key = re.sub(r"[^a-z0-9]+", "-", (value or "").strip().lower()).strip("-")
+    return key or "general-app"
+
+
+def keyword_confidence_score(raw: str, keyword: str) -> tuple[int, bool]:
+    """Score keyword match: whole-word (3), substring (1), none (0)."""
+    text = raw.lower()
+    k = keyword.lower()
+    if not k:
+        return 0, False
+
+    # Prefer explicit phrase or whole-word hits over loose substring matches.
+    whole_word = re.search(rf"\b{re.escape(k)}\b", text) is not None
+    if whole_word:
+        return 3, True
+    if k in text:
+        return 1, True
+    return 0, False
+
+
+def compute_framework_intent_bonus(stack: dict | None) -> dict[str, int]:
+    """Compute intent score bonus from framework hints."""
+    bonuses = {}
+    if not stack:
+        return bonuses
+
+    for framework in stack.get("frameworks", []) or []:
+        hint = FRAMEWORK_INTENT_HINTS.get(framework, {})
+        for label, value in hint.items():
+            bonuses[label] = bonuses.get(label, 0) + int(value)
+    return bonuses
+
+
+def resolve_compliance_packs(
+    app_intent_input: str, selected_keys: list[str] | None = None
+) -> list[dict]:
+    """Resolve compliance frameworks from app intent and user selection."""
+    selected = merge_unique([], selected_keys or [])
+    low = (app_intent_input or "").lower()
+
+    for pack_key, pack in COMPLIANCE_PACKS.items():
+        trigger_words = pack.get("trigger_keywords", [])
+        if any(word in low for word in trigger_words):
+            selected = merge_unique(selected, [pack_key])
+
+    resolved = []
+    for key in selected:
+        pack = COMPLIANCE_PACKS.get(key)
+        if not pack:
+            continue
+        resolved.append(
+            {
+                "key": key,
+                "name": pack.get("name", key.upper()),
+                "checks": pack.get("checks", []),
+            }
+        )
+
+    return resolved
+
+
+def resolve_package_guidance(stack: dict) -> dict:
+    """Resolve package recommendations from framework stack."""
+    frameworks = stack.get("frameworks", []) or []
+    package_managers = stack.get("package_managers", []) or []
+
+    recommended = []
+    avoid = []
+    matched_profiles = []
+
+    for framework in frameworks:
+        profile = PACKAGE_GUIDANCE.get(framework)
+        if not profile:
+            continue
+        matched_profiles.append(framework)
+        recommended = merge_unique(recommended, profile.get("recommended", []))
+        avoid = merge_unique(avoid, profile.get("avoid", []))
+
+    # Language-level fallbacks when no framework profile matched.
+    languages = {item.lower() for item in (stack.get("languages", []) or [])}
+    if not matched_profiles:
+        if "python" in languages:
+            recommended = merge_unique(
+                recommended, ["ruff", "mypy", "pytest", "pip-audit"]
+            )
+            avoid = merge_unique(
+                avoid, ["unmaintained python deps without recent releases"]
+            )
+        if "typescript" in languages or "javascript" in languages:
+            recommended = merge_unique(
+                recommended, ["zod", "eslint", "prettier", "vitest"]
+            )
+            avoid = merge_unique(
+                avoid,
+                [
+                    "request -> use native fetch/undici",
+                    "moment -> prefer date-fns/dayjs",
+                ],
+            )
+        if "php" in languages:
+            recommended = merge_unique(
+                recommended, ["phpstan/larastan", "php-cs-fixer"]
+            )
+            avoid = merge_unique(avoid, ["abandoned composer packages"])
+
+    audit_commands = []
+    for pm in package_managers:
+        audit_commands = merge_unique(
+            audit_commands, SECURITY_AUDIT_COMMANDS.get(pm, [])
+        )
+
+    if not audit_commands:
+        audit_commands = [
+            "Run ecosystem-specific vulnerability scanning before introducing new dependencies."
+        ]
+
+    return {
+        "matched_profiles": matched_profiles,
+        "recommended_packages": recommended,
+        "avoid_packages": avoid,
+        "audit_commands": audit_commands,
+    }
+
+
+def resolve_app_blueprint(
+    app_intent_input: str | None, stack: dict | None = None
+) -> tuple[str, str, dict]:
+    """Resolve app intent to blueprint with capabilities and suggestions."""
+    raw = (app_intent_input or "").strip()
+    if not raw:
+        raw = "general-app"
+
+    key = slugify_intent_key(raw)
+    known = APP_ARCHETYPES.get(key)
+    framework_bonus = compute_framework_intent_bonus(stack)
+    if known:
+        known_blueprint = dict(known)
+        label = known.get("label", key)
+        known_blueprint["intent_ranking"] = [
+            {
+                "label": label,
+                "score": 100 + framework_bonus.get(label, 0),
+                "base_score": 100,
+                "framework_bonus": framework_bonus.get(label, 0),
+                "matched_keywords": [key],
+            }
+        ]
+        return key, raw, known_blueprint
+
+    base = APP_ARCHETYPES["general-app"]
+    capabilities = list(base.get("capabilities", []))
+    suggestions = list(base.get("suggestions", []))
+    label = raw.title()
+    matched = False
+    ranked_matches = []
+    low = raw.lower()
+
+    for keywords, blueprint in INTENT_KEYWORD_BLUEPRINTS:
+        hit_keywords = []
+        score = 0
+        for word in keywords:
+            points, matched_word = keyword_confidence_score(low, word)
+            if matched_word:
+                hit_keywords.append(word)
+                score += points
+        if score > 0:
+            matched = True
+            resolved_label = blueprint.get("label", "Custom Profile")
+            bonus = framework_bonus.get(resolved_label, 0)
+            ranked_matches.append(
+                {
+                    "label": resolved_label,
+                    "score": score + bonus,
+                    "base_score": score,
+                    "framework_bonus": bonus,
+                    "matched_keywords": hit_keywords,
+                }
+            )
+            capabilities = merge_unique(capabilities, blueprint.get("capabilities", []))
+            suggestions = merge_unique(suggestions, blueprint.get("suggestions", []))
+
+    if ranked_matches:
+        ranked_matches = sorted(
+            ranked_matches,
+            key=lambda item: (
+                -item["score"],
+                -item.get("framework_bonus", 0),
+                -len(item.get("matched_keywords", [])),
+                item["label"].lower(),
+            ),
+        )
+        unique_labels = []
+        seen = set()
+        for item in ranked_matches:
+            label_key = item["label"].lower().strip()
+            if not label_key or label_key in seen:
+                continue
+            seen.add(label_key)
+            unique_labels.append(item["label"])
+        label = " + ".join(unique_labels)
+
+    if matched:
+        description = f"Custom app intent '{raw}' matched known patterns and merged targeted guidance."
+    else:
+        description = (
+            f"Custom app intent '{raw}' with generalized engineering defaults."
+        )
+
+    custom = {
+        "label": label,
+        "description": description,
+        "capabilities": capabilities,
+        "suggestions": suggestions,
+        "intent_ranking": ranked_matches,
+    }
+    return key, raw, custom

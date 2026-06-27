@@ -15,9 +15,11 @@ ai-docs-bootstrap (2800-line self-contained executable)
 ## Modules
 
 ### `lib.py` (470 lines, 30+ functions)
+
 Core utility functions for stack detection, compliance parsing, etc.
 
 **Key Functions:**
+
 - `detect_stack()` - Detect framework stack from package files
 - `detect_project_type()` - Identify project mode (new/existing)
 - `parse_compliance_input()` - Parse compliance arguments
@@ -26,10 +28,12 @@ Core utility functions for stack detection, compliance parsing, etc.
 - And 25+ more utilities
 
 **Note:** Missing functions that are still in setup-ai-docs.py:
+
 - `resolve_app_blueprint()` - Resolve app intent to blueprint
 - `resolve_package_guidance()` - Resolve package recommendations
 
 ### `constants/` (Directory)
+
 All framework data, compliance frameworks, stack presets.
 
 - `compliance.py` - 6 compliance frameworks (PCI-DSS, HIPAA, GDPR, SOC2, CCPA/CPRA, ISO27001)
@@ -38,12 +42,14 @@ All framework data, compliance frameworks, stack presets.
 - `guidance.py` - Package recommendations and security audit commands
 
 ### `core/` (Directory)
+
 Context building and metadata management (modular).
 
 - `generation.py` - `build_common_context()` with injectable function pattern
 - Used for building context dictionaries from project detection results
 
 ### `bootstrap_builder.py`
+
 Wrapper function for bootstrap executable generation.
 
 - `build_bootstrap_script(master_prompt, target_os) -> str`
@@ -51,13 +57,17 @@ Wrapper function for bootstrap executable generation.
 - No external dependencies (all code embedded in f-string)
 
 ### `generators/` (Directory, stub)
+
 Future location for file generation functions:
-- `compliance_scanning.py` - Generate .specs/compliance/*.md files
+
+- `compliance_scanning.py` - Generate .specs/compliance/\*.md files
 - `blueprints.py` - Generate APP-BLUEPRINT.md
 - `indexes.py` - Generate AI_DOCS_INDEX.md
 
 ### `utils/` (Directory, stub)
+
 Future location for utility functions:
+
 - `files.py` - File I/O operations
 - `text.py` - Text normalization and formatting
 - `validation.py` - Input validation

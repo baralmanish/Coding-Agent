@@ -7,6 +7,9 @@ from pathlib import Path
 from src.lib import (
     current_script_sha256,
     hash_text,
+    resolve_app_blueprint,
+    resolve_compliance_packs,
+    resolve_package_guidance,
 )
 
 
@@ -20,9 +23,6 @@ def build_common_context(
     stack: dict,
     new_details: dict | None,
     generated_at: str,
-    resolve_app_fn=None,
-    resolve_compliance_fn=None,
-    resolve_guidance_fn=None,
 ) -> dict:
     """Build context for documentation generation.
 
@@ -31,9 +31,6 @@ def build_common_context(
         stack: Stack detection results
         new_details: New project details from user
         generated_at: Generation timestamp
-        resolve_app_fn: Function to resolve app blueprint (from setup-ai-docs.py)
-        resolve_compliance_fn: Function to resolve compliance packs
-        resolve_guidance_fn: Function to resolve package guidance
     """
     DEFAULT_AGENTS = [
         "cursor",
@@ -61,34 +58,12 @@ def build_common_context(
         compliance_keys = new_details.get("compliance_keys") or []
         compliance_level = new_details.get("compliance_level", 1)
 
-    # Use injected functions if provided, otherwise use stubs
-    if resolve_app_fn:
-        app_intent, app_intent_display, app_blueprint = resolve_app_fn(
-            app_intent_input, stack
-        )
-    else:
-        app_intent, app_intent_display = app_intent_input, app_intent_input
-        app_blueprint = {
-            "label": app_intent_input,
-            "description": "",
-            "capabilities": [],
-            "suggestions": [],
-        }
-
-    if resolve_compliance_fn:
-        compliance_packs = resolve_compliance_fn(app_intent_display, compliance_keys)
-    else:
-        compliance_packs = []
-
-    if resolve_guidance_fn:
-        package_guidance = resolve_guidance_fn(stack)
-    else:
-        package_guidance = {
-            "matched_profiles": [],
-            "recommended_packages": [],
-            "avoid_packages": [],
-            "audit_commands": [],
-        }
+    # Now we can call the real functions from src.lib
+    app_intent, app_intent_display, app_blueprint = resolve_app_blueprint(
+        app_intent_input, stack
+    )
+    compliance_packs = resolve_compliance_packs(app_intent_display, compliance_keys)
+    package_guidance = resolve_package_guidance(stack)
 
     return {
         "project_type": project_type,
