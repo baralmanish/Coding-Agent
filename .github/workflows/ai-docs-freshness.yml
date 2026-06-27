@@ -1,0 +1,59 @@
+name: AI Docs Freshness
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  ai-docs-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build Bootstrap
+        run: |
+          printf "4\n" | python3 setup-ai-docs.py
+
+      - name: Skip If Not Initialized
+        id: guard
+        run: |
+          if [ ! -f AGENTS.md ] && [ ! -d .ai-docs ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "AI docs not initialized in this repository. Skipping freshness check."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify AI Docs Are Fresh
+        id: freshness
+        if: steps.guard.outputs.skip == 'false'
+        run: |
+          set +e
+          ./ai-docs-bootstrap --project . --mode existing --check --report-path .ai-docs-check-report.md | tee ai-docs-check.log
+          exit_code=$?
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload Stale Report
+        if: steps.guard.outputs.skip == 'false' && steps.freshness.outputs.exit_code != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-docs-freshness-report
+          path: |
+            .ai-docs-check-report.md
+            ai-docs-check.log
+
+      - name: Fail When Docs Are Stale
+        if: steps.guard.outputs.skip == 'false' && steps.freshness.outputs.exit_code != '0'
+        run: |
+          echo "AI docs are stale. See ai-docs-freshness-report artifact."
+          exit 1

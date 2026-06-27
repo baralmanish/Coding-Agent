@@ -1,0 +1,32 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Logs and temporary outputs
+*.log
+*.tmp
+
+# Local smoke/test artifacts
+.ai-docs-check-report.md
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
