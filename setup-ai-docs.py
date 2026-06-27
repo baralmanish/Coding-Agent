@@ -2496,6 +2496,231 @@ test -f /backup/latest.sql.gz && echo "OK" || echo "FAIL: Backup missing"
 5. Annual SOC2 readiness assessment
 """
     
+    # CCPA/CPRA scanning rules
+    ccpa_packs = [p for p in compliance_packs if p.get("key") == "ccpa"]
+    if ccpa_packs:
+        files[".specs/compliance/ccpa-scanning.md"] = """---
+title: CCPA/CPRA Scanning & Validation Rules
+type: compliance-scanning
+tags: [compliance, ccpa, cpra, scanning, privacy]
+related:
+  - [[.specs/memory.md]]
+---
+
+# CCPA/CPRA: Scanning & Validation (Level 2)
+
+Automated scanning for consumer data rights, do-not-sell controls, and opt-out enforcement.
+
+## Code Scanning Rules
+
+### Rule: Do-Not-Sell/Share Not Enforced
+- Search: Data sharing without consumer opt-out check
+- Tools: `semgrep`, data flow analysis
+- Command: `grep -r "share_data\\|sell_data" src/ | grep -v "check_optout\\|verify_consent"`
+- Fail: Data sharing bypassing consumer preferences
+- Exception: None (all sharing must check opt-outs)
+
+### Rule: Unauthorized Third-Party Sharing
+- Search: API calls to data brokers without consumer disclosure
+- Tools: Network analysis, code review
+- Command: `grep -r "api.databroker\\|vendor.api\\|third_party" src/integrations/ | grep -v "# DISCLOSED"`
+- Fail: Third-party data sharing undisclosed
+- Exception: Must add disclosure comment with link to privacy policy
+
+### Rule: Consumer Data Access Not Available
+- Search: Missing data export endpoints or filtering
+- Tools: API scanning
+- Command: `grep -r "/api/data/export\\|/api/consumer-data" src/ | grep -v "@public"`
+- Fail: No consumer-accessible data export
+- Exception: Must implement standardized format export
+
+### Rule: Deletion Request Not Honored
+- Search: Deleted consumer data still queryable or linked
+- Tools: Database audit
+- Command: `grep -r "soft_delete\\|is_deleted=false" database_schema.sql | grep -v "customer_request"`
+- Fail: Soft deletes don't purge linked data
+- Exception: Hard delete with transaction logging
+
+## Configuration Validation
+
+### Checklist
+- [ ] Do-not-sell registry: consumer preferences stored securely
+- [ ] Opt-out signals honored: requests within 45 days
+- [ ] Data access: consumer can export personal information (CSV, JSON)
+- [ ] Deletion: consumer deletion requests executed within 45 days
+- [ ] Sharing disclosures: third-party recipients documented
+- [ ] Sale disclosures: last 12 months sharing history available to consumer
+
+### Validation Script
+```bash
+#!/bin/bash
+# Check do-not-sell enforcement
+SELECT COUNT(*) FROM consumer_preferences WHERE do_not_sell=true AND shared_after_optout=true;
+# Should return 0
+
+# Check data export availability
+curl https://api.example.com/api/me/data-export -H "Authorization: Bearer $TOKEN" | jq '.data | length' || echo "FAIL: Export endpoint missing"
+
+# Check deletion enforcement
+curl -X POST https://api.example.com/api/me/delete-all -H "Authorization: Bearer $TOKEN" 
+sleep 3
+curl https://api.example.com/api/me -H "Authorization: Bearer $TOKEN" | grep "not found" || echo "FAIL: Deletion not enforced"
+```
+
+## Dependency Audit Commands
+
+### Pre-Commit
+```bash
+# Check for unauthorized data broker integrations
+npm ls | grep -E "acxiom|experian|equifax"
+
+# Scan for data sharing code
+grep -r "share\|sell" package.json | grep -v "description"
+```
+
+### CI/CD Pipeline
+```bash
+# Verify do-not-sell field in database
+SELECT * FROM consumer_preferences WHERE do_not_sell IS NULL LIMIT 1;
+# Should return 0 rows
+
+# Check data retention policies
+grep -r "RETENTION_DAYS\\|DELETE AFTER" src/scheduled_jobs
+```
+
+### Monthly Audit
+```bash
+# Verify deletion requests processed
+SELECT COUNT(*) FROM deletion_requests WHERE created_at > DATE_SUB(NOW(), INTERVAL 45 DAY) AND completed_at IS NULL;
+# Should be < 5
+
+# Check opt-out honor rate
+SELECT COUNT(*) FROM consumer_preferences WHERE do_not_sell=true AND last_shared < last_optout_date;
+```
+
+## Remediation Path
+1. Block data sharing if do-not-sell flag set
+2. Deletion requests processed within 30 days (buffer before 45-day deadline)
+3. Daily audit of opt-out violations
+4. Quarterly consumer rights audit
+5. Annual CCPA compliance certification
+"""
+    
+    # ISO27001 scanning rules
+    iso_packs = [p for p in compliance_packs if p.get("key") == "iso27001"]
+    if iso_packs:
+        files[".specs/compliance/iso27001-scanning.md"] = """---
+title: ISO 27001 Scanning & Validation Rules
+type: compliance-scanning
+tags: [compliance, iso27001, scanning, security]
+related:
+  - [[.specs/memory.md]]
+---
+
+# ISO 27001: Scanning & Validation (Level 2)
+
+Automated scanning for information security controls, risk management, and asset management.
+
+## Code Scanning Rules
+
+### Rule: Unclassified Assets
+- Search: Infrastructure/data without classification tag
+- Tools: Cloud asset inventory tools, custom scanner
+- Command: `aws ec2 describe-instances | grep -v Classification || echo "FAIL: Unclassified asset detected"`
+- Fail: Asset missing security classification
+- Exception: None (all assets must be classified)
+
+### Rule: Unapproved Security Exceptions
+- Search: Security controls disabled without documented exception
+- Tools: `semgrep`, configuration analysis
+- Command: `grep -r "DISABLE_SECURITY\\|SKIP_VALIDATION" src/ | grep -v "TICKET"`
+- Fail: Control bypassed without exception ticket
+- Exception: Documented in risk register with management approval
+
+### Rule: Missing Incident Logging
+- Search: Security events not logged
+- Tools: Log aggregation analysis
+- Command: `grep -r "except.*pass\\|except.*continue" src/security/ | grep -v "log"`
+- Fail: Exception caught without logging
+- Exception: None (all security events must be logged)
+
+### Rule: Access Rights Not Reviewed
+- Search: Long-standing access without review metadata
+- Tools: Identity management audit
+- Command: `SELECT user_id, access_grant_date FROM access_grants WHERE review_date IS NULL OR review_date < DATE_SUB(NOW(), INTERVAL 1 YEAR);`
+- Fail: Access not reviewed in 12 months
+- Exception: None (annual access reviews mandatory)
+
+## Configuration Validation
+
+### Checklist
+- [ ] Asset inventory: all IT assets catalogued with classification
+- [ ] Risk register: identified risks documented with controls
+- [ ] Access review: all user/role access reviewed quarterly
+- [ ] Incident management: security events logged, classified, responded
+- [ ] Supplier management: critical vendors audited annually
+- [ ] Backup/recovery: tested quarterly, RTO/RPO documented
+- [ ] Security training: annual awareness training for all staff
+- [ ] Penetration testing: annual pen test by external firm
+
+### Validation Script
+```bash
+#!/bin/bash
+# Check asset inventory completeness
+TOTAL_ASSETS=$(aws ec2 describe-instances --query 'Reservations[].Instances[].InstanceId' --output text | wc -w)
+CLASSIFIED=$(aws ec2 describe-instances --query 'Reservations[].Instances[].Tags[?Key==`Classification`].Value' --output text | wc -w)
+echo "Classified: $CLASSIFIED / $TOTAL_ASSETS"
+[ $CLASSIFIED -eq $TOTAL_ASSETS ] || echo "FAIL: Unclassified assets detected"
+
+# Check incident response plan exists
+test -f .specs/incident-response-plan.md || echo "FAIL: No incident response plan"
+
+# Check access review documentation
+ls .specs/access-reviews/*.md | wc -l
+# Should be >= 1
+```
+
+## Dependency Audit Commands
+
+### Pre-Commit
+```bash
+# Check for unapproved security bypasses
+grep -r "disable\\|skip\\|bypass" src/ --include="*.py" --include="*.js" | grep -i security
+
+# Verify all exceptions documented
+grep -r "EXCEPTION\\|WAIVER" src/ | grep -v TICKET
+```
+
+### Quarterly
+```bash
+# Audit user access rights
+SELECT user_id, role, access_grant_date FROM access_grants ORDER BY access_grant_date DESC;
+
+# Check control effectiveness
+grep -r "test.*control\\|verify.*rule" tests/ | wc -l
+# Should be > 50
+```
+
+### Annual
+```bash
+# Review risk register
+cat .specs/risk-register.md | grep -c "^##"
+# Should document top 10 risks with controls
+
+# Check penetration test results
+ls .specs/pentest-*.pdf | sort -V | tail -1
+# Should be recent
+```
+
+## Remediation Path
+1. Maintain current risk register with treatment plans
+2. Conduct quarterly access reviews
+3. Patch critical/high vulnerabilities within 30 days
+4. Incident response drill quarterly
+5. Annual ISO 27001 control assessment
+6. Management review semi-annually
+"""
+    
     return files
 
 
