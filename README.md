@@ -94,6 +94,20 @@ For Windows profile output:
 python ai-docs-bootstrap.py --project C:\path\to\project
 ```
 
+### Drop-In Quick Start (Other Repos)
+
+From another local repo on the same machine:
+
+```bash
+cp /absolute/path/to/Coding\ Agent/ai-docs-bootstrap . && chmod +x ai-docs-bootstrap && ./ai-docs-bootstrap --project .
+```
+
+From GitHub (macOS/Linux):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/baralmanish/Coding-Agent/main/ai-docs-bootstrap -o ai-docs-bootstrap && chmod +x ai-docs-bootstrap && ./ai-docs-bootstrap --project .
+```
+
 ## Usage
 
 ### Auto mode (default)
