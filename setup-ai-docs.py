@@ -43,7 +43,23 @@ from src.constants import (
     PACKAGE_GUIDANCE,
     SECURITY_AUDIT_COMMANDS,
 )
-from src.core import build_common_context, write_metadata
+from src.core import build_common_context
+from src.generators import (
+    generate_agents_md,
+    generate_app_blueprint_md,
+    generate_index_md,
+    generate_context_snapshot,
+    generate_agent_specific_docs,
+    generate_level_2_compliance_scanning,
+)
+from src.utils import (
+    ensure_dir,
+    write_text,
+    read_text_if_exists,
+    normalize_text,
+    append_changelog,
+    load_previous_metadata,
+)
 
 
 def ask_target_os() -> str:
@@ -66,9 +82,271 @@ def ask_target_os() -> str:
         print("Invalid choice. Please select 1, 2, 3, or 4.")
 
 
+def sanitize_feature_name(name: str) -> str:
+    cleaned = re.sub(r"[^a-z0-9_-]+", "-", name.lower()).strip("-_")
+    return cleaned or "feature"
+
+
+def detect_feature_names(project_dir: Path, max_features: int = 8) -> list[str]:
+    roots = ["src", "app", "services", "backend", "frontend"]
+    ignore = {
+        "node_modules",
+        "dist",
+        "build",
+        "__pycache__",
+        "tests",
+        "test",
+        ".git",
+        ".ai-docs",
+        ".specs",
+        ".github",
+        ".cursor",
+    }
+
+    candidates = []
+    for root_name in roots:
+        root = project_dir / root_name
+        if not root.exists() or not root.is_dir():
+            continue
+
+        for child in sorted(root.iterdir()):
+            name = child.name
+            if name.startswith(".") or name.lower() in ignore:
+                continue
+            if child.is_dir():
+                candidates.append(name)
+                continue
+            if child.is_file() and "." in name:
+                stem = name.rsplit(".", 1)[0]
+                if stem and stem.lower() not in ignore:
+                    candidates.append(stem)
+
+    unique = []
+    seen = set()
+    for name in candidates:
+        feature = sanitize_feature_name(name)
+        if feature in seen or feature in {"core", "template"}:
+            continue
+        seen.add(feature)
+        unique.append(feature)
+        if len(unique) >= max_features:
+            break
+
+    return unique
+
+
+def write_metadata_simple(
+    project_dir: Path, ctx: dict, generated_files: list[str]
+) -> None:
+    """Write generation metadata to disk (simplified version for bootstrap)."""
+    metadata_path = project_dir / ".ai-docs" / "metadata.json"
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "generator_version": "1.0.0",
+        "generated_at": ctx.get("generated_at", ""),
+        "target_os": ctx.get("target_os", ""),
+        "project_type": ctx.get("project_type", ""),
+        "compliance_level": ctx.get("compliance_level", 1),
+        "generated_files": generated_files,
+    }
+    metadata_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def build_feature_spec_files(feature_names: list[str]) -> tuple[dict[str, str], str]:
+    files = {}
+    index_lines = [
+        "---",
+        "title: Specs Memory Index",
+        "type: specs-index",
+        "tags: [ai-docs, specs, knowledge-graph]",
+        "---",
+        "",
+        "# Specs Memory Index",
+        "",
+        "Track feature specs and where their memory files live.",
+        "",
+        "## Related Links",
+        "- [[.specs/features/core/spec.md]]",
+        "- [[.specs/features/core/memory.md]]",
+        "",
+        "## Index",
+        "- core: .specs/features/core/spec.md",
+        "- core-memory: .specs/features/core/memory.md",
+    ]
+
+    for feature in feature_names:
+        spec_path = f".specs/features/{feature}/spec.md"
+        memory_path = f".specs/features/{feature}/memory.md"
+
+        files[spec_path] = f"""---
+title: Feature Spec {feature}
+type: feature-spec
+tags: [ai-docs, specs, knowledge-graph]
+related:
+  - [[.specs/memory.md]]
+  - [[.specs/features/{feature}/memory.md]]
+---
+
+# Feature Spec: {feature}
+
+## Goal
+Define expected behavior for {feature}.
+
+## Acceptance Criteria
+1. Core behavior for {feature} is defined.
+2. Tests can map to acceptance criteria.
+3. Security/performance constraints are explicit.
+
+## Test Mapping
+- AC1 -> unit/integration tests for {feature}
+- AC2 -> acceptance test coverage for {feature}
+- AC3 -> security/performance checks
+
+## Linked Notes
+- [[.specs/memory.md]]
+- [[.specs/features/{feature}/memory.md]]
+"""
+
+        files[memory_path] = f"""---
+title: Feature Memory {feature}
+type: feature-memory
+tags: [ai-docs, memory, knowledge-graph]
+related:
+  - [[.specs/memory.md]]
+  - [[.specs/features/{feature}/spec.md]]
+---
+
+# Feature Memory: {feature}
+
+## Decisions
+- <record key implementation and design decisions>
+
+## Open Questions
+- <record unresolved questions and follow-ups>
+
+## Linked Notes
+- [[.specs/memory.md]]
+- [[.specs/features/{feature}/spec.md]]
+"""
+
+        index_lines.append(f"- {feature}: {spec_path}")
+        index_lines.append(f"- {feature}-memory: {memory_path}")
+
+    index_content = "\n".join(index_lines).rstrip() + "\n"
+    return files, index_content
+
+
 def build_bootstrap_script(master_prompt: str, target_os: str) -> str:
     prompt_literal = json.dumps(master_prompt)
     target_os_literal = json.dumps(target_os)
+
+    # Read current file to extract utility functions
+    current_file = Path(__file__).read_text(encoding="utf-8")
+    current_lines = current_file.split("\n")
+
+    # Extract sanitize_feature_name, detect_feature_names, write_metadata_simple, build_feature_spec_files
+    utility_functions_code = ""
+    i = 0
+    while i < len(current_lines):
+        line = current_lines[i]
+        if (
+            line.startswith("def sanitize_feature_name")
+            or line.startswith("def detect_feature_names")
+            or line.startswith("def write_metadata_simple")
+            or line.startswith("def build_feature_spec_files")
+        ):
+            # Find end of function (next def at column 0 or end of file)
+            func_start = i
+            i += 1
+            while i < len(current_lines):
+                if (
+                    current_lines[i]
+                    and not current_lines[i][0].isspace()
+                    and current_lines[i].startswith("def ")
+                ):
+                    break
+                i += 1
+            utility_functions_code += "\n".join(current_lines[func_start:i]) + "\n\n"
+        else:
+            i += 1
+
+    utility_functions_escaped = (
+        json.dumps(utility_functions_code) if utility_functions_code else '""'
+    )
+
+    # Read and prepare generator functions for embedding from core.py
+    generator_code = Path(__file__).parent / "src" / "generators" / "core.py"
+    gen_functions_code = ""
+    if generator_code.exists():
+        gen_content = generator_code.read_text(encoding="utf-8")
+        lines = gen_content.split("\n")
+        func_start = None
+        for i, line in enumerate(lines):
+            if line.startswith("def generate_agents_md"):
+                func_start = i
+                break
+        if func_start is not None:
+            gen_functions_code = "\n".join(lines[func_start:])
+
+    # Also read compliance generator functions from compliance.py
+    compliance_code = Path(__file__).parent / "src" / "generators" / "compliance.py"
+    compliance_functions_code = ""
+    if compliance_code.exists():
+        comp_content = compliance_code.read_text(encoding="utf-8")
+        lines = comp_content.split("\n")
+        func_start = None
+        for i, line in enumerate(lines):
+            if line.startswith("def generate_level_2_compliance_scanning"):
+                func_start = i
+                break
+        if func_start is not None:
+            compliance_functions_code = "\n".join(lines[func_start:])
+
+    gen_functions_code += "\n\n" + compliance_functions_code
+
+    # Also read file I/O utilities from utils/file_io.py
+    file_io_code = Path(__file__).parent / "src" / "utils" / "file_io.py"
+    file_io_functions_code = ""
+    if file_io_code.exists():
+        file_io_content = file_io_code.read_text(encoding="utf-8")
+        lines = file_io_content.split("\n")
+        func_start = None
+        for i, line in enumerate(lines):
+            if line.startswith("def ensure_dir"):
+                func_start = i
+                break
+        if func_start is not None:
+            file_io_functions_code = "\n".join(lines[func_start:])
+            # Remove the "from src.lib import now_utc" line and replace with inline definition
+            file_io_functions_code = file_io_functions_code.replace(
+                "    from src.lib import now_utc",
+                "    # now_utc will be defined in globals() after exec()",
+            )
+
+    # Also include now_utc from src/lib
+    lib_code = Path(__file__).parent / "src" / "lib.py"
+    now_utc_code = ""
+    if lib_code.exists():
+        lib_content = lib_code.read_text(encoding="utf-8")
+        lines = lib_content.split("\n")
+        for i, line in enumerate(lines):
+            if line.startswith("def now_utc"):
+                # Find end of function
+                j = i + 1
+                while j < len(lines) and (not lines[j] or lines[j][0].isspace()):
+                    j += 1
+                now_utc_code = "\n".join(lines[i:j]) + "\n"
+                break
+
+    gen_functions_code += "\n\n" + now_utc_code + "\n\n" + file_io_functions_code
+
+    gen_functions_escaped = (
+        json.dumps(gen_functions_code) if gen_functions_code else '""'
+    )
+    gen_functions_setup = f"""# Embed utility functions
+exec({utility_functions_escaped}, globals())
+# Embed generator functions (core + compliance + file_io)
+exec({gen_functions_escaped}, globals())"""
 
     return textwrap.dedent(
         f'''\
@@ -1278,37 +1556,6 @@ def print_catalogs(show_stack_presets: bool, show_intents: bool, show_compliance
         print("No catalog flag selected.")
 
 
-def ensure_dir(path: Path) -> None:
-    path.mkdir(parents=True, exist_ok=True)
-
-
-def write_text(path: Path, content: str) -> None:
-    ensure_dir(path.parent)
-    path.write_text(content.rstrip() + "\\n", encoding="utf-8")
-
-
-def read_text_if_exists(path: Path) -> str:
-    if not path.exists():
-        return ""
-    try:
-        return path.read_text(encoding="utf-8", errors="ignore")
-    except Exception:
-        return ""
-
-
-def normalize_text(content: str) -> str:
-    return content.rstrip() + "\\n"
-
-
-def load_previous_metadata(project_dir: Path) -> dict:
-    metadata_path = project_dir / ".ai-docs" / "metadata.json"
-    if not metadata_path.exists():
-        return {{}}
-    try:
-        return json.loads(metadata_path.read_text(encoding="utf-8", errors="ignore"))
-    except Exception:
-        return {{}}
-
 
 def list_signature(values: list[str] | None) -> list[str]:
     return sorted((values or []), key=lambda item: item.lower())
@@ -1662,1095 +1909,8 @@ def build_common_context(project_type: str, stack: dict, new_details: dict | Non
     }}
 
 
-def generate_agents_md(ctx: dict) -> str:
-    stack = ctx["stack"]
-    langs = ", ".join(stack.get("languages") or ["TBD"])
-    fws = ", ".join(stack.get("frameworks") or ["TBD"])
-    app_label = ctx.get("app_blueprint", {{}}).get("label", "General App")
-    app_desc = ctx.get("app_blueprint", {{}}).get("description", "Balanced defaults for software delivery.")
-    app_input = ctx.get("app_intent_input", ctx.get("app_intent", "general-app"))
 
-    return f"""# AGENTS.md
-
-Last updated: {{ctx['generated_at']}}
-
-## Purpose
-Canonical cross-agent guidance for AI-assisted development in this repository.
-
-## Project Context
-- Project type: {{ctx['project_type']}}
-- Target OS: {{ctx['target_os']}}
-- App intent: {{app_input}} (profile: {{ctx['app_intent']}} / {{app_label}})
-- Languages: {{langs}}
-- Frameworks: {{fws}}
-
-## Product Intent
-{{app_desc}}
-
-## Core Engineering Rules
-1. Preserve existing architecture and coding style unless change is requested.
-2. Write or update tests for behavior changes.
-3. Prefer small, reviewable diffs.
-4. Avoid exposing secrets in code, docs, or logs.
-5. Document assumptions and unknowns explicitly.
-
-## Quality Gate
-- Build passes
-- Lint passes
-- Tests pass
-- Docs updated for behavior/interface changes
-
-## Security Gate
-- No embedded credentials or tokens
-- Validate inputs at boundaries
-- Apply least-privilege defaults
-
-## Spec-Driven Development
-Use docs as executable intent:
-- Requirements and acceptance criteria first
-- Tests mapped to acceptance criteria
-- Implementation follows validated tests
-
-## Token/Context Efficiency
-- Read only necessary files first, then expand.
-- Summarize large contexts before synthesis.
-- Reuse canonical rules from this file in agent-specific docs.
-
-## Update Policy
-- Refresh docs when stack/tooling changes.
-- Record updates in .ai-docs/CHANGELOG.md.
-"""
-
-
-def generate_app_blueprint_md(ctx: dict) -> str:
-    blueprint = ctx.get("app_blueprint", {{}})
-    capabilities = blueprint.get("capabilities", [])
-    suggestions = blueprint.get("suggestions", [])
-    compliance_packs = ctx.get("compliance_packs", [])
-    package_guidance = ctx.get("package_guidance", {{}})
-    intent_ranking = blueprint.get("intent_ranking", [])
-
-    capabilities_lines = "\\n".join(f"- {{item}}" for item in capabilities) if capabilities else "- No capabilities defined"
-    suggestions_lines = "\\n".join(f"- {{item}}" for item in suggestions) if suggestions else "- No suggestions defined"
-
-    if compliance_packs:
-        compliance_lines = []
-        for pack in compliance_packs:
-            compliance_lines.append(f"- {{pack.get('name', pack.get('key', 'Unknown'))}} ({{pack.get('key', 'n/a')}})")
-            for check in pack.get("checks", []):
-                compliance_lines.append(f"  - {{check}}")
-        compliance_text = "\\n".join(compliance_lines)
-    else:
-        compliance_text = "- No specific compliance pack selected or auto-detected."
-
-    if intent_ranking:
-        ranking_lines = []
-        for row in intent_ranking:
-            keywords = ", ".join(row.get("matched_keywords", [])) or "n/a"
-            base_score = row.get("base_score", row.get("score", 0))
-            framework_bonus = row.get("framework_bonus", 0)
-            ranking_lines.append(
-                f"- {{row.get('label', 'Unknown')}}: score={{row.get('score', 0)}} (base={{base_score}}, framework_bonus={{framework_bonus}}, matched: {{keywords}})"
-            )
-        ranking_text = "\\n".join(ranking_lines)
-    else:
-        ranking_text = "- No ranked intent matches; using default/general profile."
-
-    recommended_packages = package_guidance.get("recommended_packages", [])
-    avoid_packages = package_guidance.get("avoid_packages", [])
-    audit_commands = package_guidance.get("audit_commands", [])
-
-    recommended_text = "\\n".join(f"- {{item}}" for item in recommended_packages) if recommended_packages else "- No package recommendations available."
-    avoid_text = "\\n".join(f"- {{item}}" for item in avoid_packages) if avoid_packages else "- No stale package warnings available."
-    audit_text = "\\n".join(f"- `{{item}}`" for item in audit_commands) if audit_commands else "- No audit command recommendations available."
-
-    return f"""# Application Blueprint
-
-Last updated: {{ctx['generated_at']}}
-
-## Selected Intent
-- Key: {{ctx.get('app_intent', 'general-app')}}
-- Input: {{ctx.get('app_intent_input', ctx.get('app_intent', 'general-app'))}}
-- Label: {{blueprint.get('label', 'General App')}}
-- Description: {{blueprint.get('description', 'Balanced defaults for software delivery.')}}
-
-## Intent Ranking
-{{ranking_text}}
-
-## Capability Checklist
-{{capabilities_lines}}
-
-## Delivery Suggestions
-{{suggestions_lines}}
-
-## Compliance Packs
-{{compliance_text}}
-
-## Package Recommendations (Current Standard)
-{{recommended_text}}
-
-## Avoid Stale Packages
-{{avoid_text}}
-
-## Security Audit Before Install
-1. Run vulnerability and advisory checks before adding new dependencies.
-2. Prefer actively maintained libraries with regular releases and security response history.
-3. Block install/merge when high or critical issues are unresolved.
-
-Suggested commands:
-{{audit_text}}
-
-## Stack-Specific Notes
-- React/Next: prioritize typed API clients, optimistic UI boundaries, and role-aware routes.
-- Node/Nest/Fastify: isolate domain services from transport; enforce request/schema validation.
-- Laravel: use policies, form requests, queues, and database transactions for critical flows.
-- Python (FastAPI/Django): validate contracts with pydantic/dataclasses and secure async/background tasks.
-
-## Spec-Driven Development
-This project supports advanced development workflows:
-- **Executable Specs**: Turn requirements into validated specifications (see `.ai-docs/EXECUTABLE-SPECS.md`)
-- **Code Validation**: Validate correctness beyond unit tests (see `.ai-docs/CODE-VALIDATION.md`)
-- **Parallel Agents**: Coordinate multiple agents with session-based learning (see `.ai-docs/PARALLEL-AGENTS.md`)
-
-Recommended approach:
-1. Define executable specs in `.specs/` folder with acceptance criteria and assertions.
-2. Implement code to satisfy assertions (faster than iterative fixing).
-3. Run validation suite to find bugs unit tests miss.
-4. Coordinate work across agents using shared specs and session memory.
-
-## Memory Management Strategy
-Use the three-layer memory approach (key-value store + selective graph + session memory) to minimize LLM calls:
-- Track only what changed each session (3-5 LLM calls vs 20+ for full re-extraction)
-- Use key-value pairs for fast fact lookup
-- Update selective graph edges only when relationships change
-- Record session memory for continuous improvement
-
-See `.ai-docs/MEMORY-MANAGEMENT.md` for full details.
-"""
-
-
-def generate_index_md(ctx: dict, files: list[str]) -> str:
-    links = "\\n".join(f"- {{name}}" for name in files)
-    return f"""# AI_DOCS_INDEX.md
-
-Last updated: {{ctx['generated_at']}}
-
-## What This Is
-Entry point for AI-agent documentation in this repository.
-
-## Generated Files
-{{links}}
-
-## Workflow
-1. Run the bootstrap script after major project/tooling changes.
-2. Review diffs and keep custom guidance in dedicated sections.
-3. Track improvements via .ai-docs/FEEDBACK.md.
-
-## Source Prompt
-This documentation was generated from an embedded master prompt aligned to modern AI engineering practices.
-"""
-
-
-def generate_context_snapshot(ctx: dict, markdown_context: list[dict]) -> str:
-    stack = ctx["stack"]
-    preview_lines = []
-    for item in markdown_context[:10]:
-        preview = item["preview"].replace("\\n", " ")
-        preview_lines.append(f"- {{item['path']}}: {{preview[:120]}}")
-
-    preview_text = "\\n".join(preview_lines) if preview_lines else "- No markdown files detected during scan."
-    scripts = stack.get("scripts", {{}})
-    scripts_text = "\\n".join(f"- {{k}}: {{v}}" for k, v in scripts.items()) if scripts else "- No scripts detected"
-
-    return f"""# Context Snapshot
-
-Captured at: {{ctx['generated_at']}}
-
-## Stack Detection
-- Languages: {{', '.join(stack.get('languages') or ['Unknown'])}}
-- Frameworks: {{', '.join(stack.get('frameworks') or ['Unknown'])}}
-- Package Managers: {{', '.join(stack.get('package_managers') or ['Unknown'])}}
-- Packages Detected: {{len(stack.get('packages') or [])}}
-
-## Build/Test/Lint Script Signals
-{{scripts_text}}
-
-## Existing Markdown Context (Preview)
-{{preview_text}}
-"""
-
-
-def generate_agent_specific_docs(ctx: dict) -> dict[str, str]:
-    stack = ctx["stack"]
-    langs = ", ".join(stack.get("languages") or ["TBD"])
-    tests_hint = "Run and update tests for every behavior change."
-
-    files = {{}}
-    agents = {{a.lower() for a in ctx["agents"]}}
-
-    if "cursor" in agents:
-        files[".cursor/rules/project.mdc"] = f"""---
-description: Project rules for Cursor
-alwaysApply: true
----
-# Cursor Project Rules
-
-- Respect AGENTS.md as source of truth.
-- Keep edits focused and minimal.
-- Validate with tests/lint before finalizing.
-- Stack: {{langs}}
-- {{tests_hint}}
-"""
-
-    if "github-copilot" in agents or "copilot" in agents:
-        files[".github/copilot-instructions.md"] = f"""# GitHub Copilot Instructions
-
-Follow AGENTS.md first.
-
-## Repository Priorities
-- Maintain architecture consistency.
-- Prefer secure defaults.
-- Add tests for changed behavior.
-- Keep code and docs aligned.
-
-## Stack
-{{langs}}
-"""
-
-    # Note: Claude Code, OpenAI Codex, and Antigravity agents should reference AGENTS.md
-    # Other agent-specific guidance is documented in .cursor/rules/project.mdc
-
-    return files
-
-
-def append_changelog(changelog_path: Path, summary: str) -> None:
-    ensure_dir(changelog_path.parent)
-    if changelog_path.exists():
-        existing = changelog_path.read_text(encoding="utf-8", errors="ignore")
-    else:
-        existing = "# AI Docs Changelog\\n\\n"
-    entry = f"## {{now_utc()}}\\n- {{summary}}\\n\\n"
-    changelog_path.write_text(existing + entry, encoding="utf-8")
-
-
-def write_metadata(project_dir: Path, ctx: dict, generated_files: list[str]) -> None:
-    metadata_path = project_dir / ".ai-docs" / "metadata.json"
-    ensure_dir(metadata_path.parent)
-    payload = {{
-        "generator_version": GENERATOR_VERSION,
-        "generated_at": ctx["generated_at"],
-        "target_os": ctx["target_os"],
-        "project_type": ctx["project_type"],
-        "app_intent": ctx.get("app_intent"),
-        "app_intent_input": ctx.get("app_intent_input"),
-        "compliance_keys": [pack.get("key") for pack in (ctx.get("compliance_packs", []) or []) if pack.get("key")],
-        "compliance_level": ctx.get("compliance_level", 1),
-        "agents": ctx["agents"],
-        "stack": ctx["stack"],
-        "master_prompt_sha256": hash_text(MASTER_PROMPT),
-        "script_sha256": current_script_sha256(),
-        "generated_files": generated_files,
-    }}
-    metadata_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-
-
-def compute_stale_reasons(project_dir: Path, ctx: dict) -> list[str]:
-    reasons = []
-    metadata_path = project_dir / ".ai-docs" / "metadata.json"
-    if not metadata_path.exists():
-        reasons.append("No prior metadata found; initial generation is required.")
-        return reasons
-
-    try:
-        old_meta = json.loads(metadata_path.read_text(encoding="utf-8", errors="ignore"))
-    except Exception:
-        reasons.append("Existing metadata could not be parsed.")
-        return reasons
-
-    old_stack = old_meta.get("stack", {{}})
-    new_stack = ctx.get("stack", {{}})
-
-    for key in ["languages", "frameworks", "package_managers"]:
-        old_values = sorted(old_stack.get(key, []) or [])
-        new_values = sorted(new_stack.get(key, []) or [])
-        if old_values != new_values:
-            reasons.append(f"Stack changed for {{key}}: {{old_values}} -> {{new_values}}")
-
-    old_agents = sorted(old_meta.get("agents", []) or [])
-    new_agents = sorted(ctx.get("agents", []) or [])
-    if old_agents != new_agents:
-        reasons.append(f"Enabled agents changed: {{old_agents}} -> {{new_agents}}")
-
-    old_intent = (old_meta.get("app_intent") or "").strip().lower()
-    new_intent = (ctx.get("app_intent") or "").strip().lower()
-    if old_intent != new_intent:
-        reasons.append(f"App intent changed: {{old_intent}} -> {{new_intent}}")
-
-    old_compliance = sorted(old_meta.get("compliance_keys", []) or [])
-    new_compliance = sorted([pack.get("key") for pack in (ctx.get("compliance_packs", []) or []) if pack.get("key")])
-    if old_compliance != new_compliance:
-        reasons.append(f"Compliance packs changed: {{old_compliance}} -> {{new_compliance}}")
-
-    if not reasons:
-        reasons.append("Generated content drift detected from templates or user-managed sections.")
-
-    return reasons
-
-
-def write_check_report(report_path: Path, changed_files: list[str], reasons: list[str], project_dir: Path) -> None:
-    ensure_dir(report_path.parent)
-    lines = [
-        "# AI Docs Freshness Report",
-        "",
-        f"Generated at: {{now_utc()}}",
-        f"Project: {{project_dir}}",
-        "",
-        "## Changed Files",
-    ]
-    if changed_files:
-        lines.extend([f"- {{name}}" for name in changed_files])
-    else:
-        lines.append("- None")
-
-    lines.extend(["", "## Likely Reasons"])
-    if reasons:
-        lines.extend([f"- {{reason}}" for reason in reasons])
-    else:
-        lines.append("- No reasons detected")
-
-    report_path.write_text("\\n".join(lines).rstrip() + "\\n", encoding="utf-8")
-
-
-def sanitize_feature_name(name: str) -> str:
-    cleaned = re.sub(r"[^a-z0-9_-]+", "-", name.lower()).strip("-_")
-    return cleaned or "feature"
-
-
-def detect_feature_names(project_dir: Path, max_features: int = 8) -> list[str]:
-    roots = ["src", "app", "services", "backend", "frontend"]
-    ignore = {{
-        "node_modules",
-        "dist",
-        "build",
-        "__pycache__",
-        "tests",
-        "test",
-        ".git",
-        ".ai-docs",
-        ".specs",
-        ".github",
-        ".cursor",
-    }}
-
-    candidates = []
-    for root_name in roots:
-        root = project_dir / root_name
-        if not root.exists() or not root.is_dir():
-            continue
-
-        for child in sorted(root.iterdir()):
-            name = child.name
-            if name.startswith(".") or name.lower() in ignore:
-                continue
-            if child.is_dir():
-                candidates.append(name)
-                continue
-            if child.is_file() and "." in name:
-                stem = name.rsplit(".", 1)[0]
-                if stem and stem.lower() not in ignore:
-                    candidates.append(stem)
-
-    unique = []
-    seen = set()
-    for name in candidates:
-        feature = sanitize_feature_name(name)
-        if feature in seen or feature in {{"core", "template"}}:
-            continue
-        seen.add(feature)
-        unique.append(feature)
-        if len(unique) >= max_features:
-            break
-
-    return unique
-
-
-def build_feature_spec_files(feature_names: list[str]) -> tuple[dict[str, str], str]:
-    files = {{}}
-    index_lines = [
-        "---",
-        "title: Specs Memory Index",
-        "type: specs-index",
-        "tags: [ai-docs, specs, knowledge-graph]",
-        "---",
-        "",
-        "# Specs Memory Index",
-        "",
-        "Track feature specs and where their memory files live.",
-        "",
-        "## Related Links",
-        "- [[.specs/features/core/spec.md]]",
-        "- [[.specs/features/core/memory.md]]",
-        "",
-        "## Index",
-        "- core: .specs/features/core/spec.md",
-        "- core-memory: .specs/features/core/memory.md",
-    ]
-
-    for feature in feature_names:
-        spec_path = f".specs/features/{{feature}}/spec.md"
-        memory_path = f".specs/features/{{feature}}/memory.md"
-
-        files[spec_path] = f"""---
-    title: Feature Spec {{feature}}
-    type: feature-spec
-    tags: [ai-docs, specs, knowledge-graph]
-    related:
-      - [[.specs/memory.md]]
-      - [[.specs/features/{{feature}}/memory.md]]
-    ---
-
-    # Feature Spec: {{feature}}
-
-## Goal
-Define expected behavior for {{feature}}.
-
-## Acceptance Criteria
-1. Core behavior for {{feature}} is defined.
-2. Tests can map to acceptance criteria.
-3. Security/performance constraints are explicit.
-
-## Test Mapping
-- AC1 -> unit/integration tests for {{feature}}
-- AC2 -> acceptance test coverage for {{feature}}
-- AC3 -> security/performance checks
-
-## Linked Notes
-- [[.specs/memory.md]]
-- [[.specs/features/{{feature}}/memory.md]]
-"""
-
-        files[memory_path] = f"""---
-title: Feature Memory {{feature}}
-type: feature-memory
-    tags: [ai-docs, memory, knowledge-graph]
-related:
-  - [[.specs/memory.md]]
-  - [[.specs/features/{{feature}}/spec.md]]
----
-
-# Feature Memory: {{feature}}
-
-## Decisions
-- <record key implementation and design decisions>
-
-## Open Questions
-- <record unresolved questions and follow-ups>
-
-## Linked Notes
-- [[.specs/memory.md]]
-- [[.specs/features/{{feature}}/spec.md]]
-"""
-
-        index_lines.append(f"- {{feature}}: {{spec_path}}")
-        index_lines.append(f"- {{feature}}-memory: {{memory_path}}")
-
-    index_content = "\\n".join(index_lines).rstrip() + "\\n"
-    return files, index_content
-
-
-def generate_level_2_compliance_scanning(compliance_packs: list[dict]) -> dict[str, str]:
-    """Generate Level 2 compliance scanning rules and validation scripts."""
-    files = {{}}
-    
-    # PCI-DSS scanning rules
-    pci_packs = [p for p in compliance_packs if p.get("key") == "pci-dss"]
-    if pci_packs:
-        files[".specs/compliance/pci-dss-scanning.md"] = """---
-title: PCI-DSS Scanning & Validation Rules
-type: compliance-scanning
-tags: [compliance, pci-dss, scanning, security]
-related:
-  - [[.specs/memory.md]]
----
-
-# PCI-DSS: Scanning & Validation (Level 2)
-
-Automated scanning rules and validation for payment security.
-
-## Code Scanning Rules
-
-### Rule: Plaintext Secrets in Code
-- Search: regex patterns for hardcoded passwords, API keys, tokens
-- Tools: `truffleHog`, `detect-secrets`, `gitleaks`
-- Command: `gitleaks detect --source git --verbose`
-- Fail: Any match found
-- Exception: Test data marked with `@test-only` comments
-
-### Rule: Encryption Algorithm Validation
-- Search: `malloc`, `strcpy`, `md5`, `sha1` (weak hashing)
-- Tools: `semgrep`, `sonarqube`
-- Command: `semgrep --config=p/security-audit --json`
-- Fail: Weak crypto detected in production code
-- Exception: Legacy compatibility layer with deprecation notice
-
-### Rule: SQL Injection Risk Patterns
-- Search: Raw SQL concatenation without parameterization
-- Tools: `sqlcheck`, `semgrep`
-- Command: `semgrep --config=p/owasp-top-ten`
-- Fail: Unparameterized queries in user-input handling paths
-- Exception: Schema migrations (pre-approved)
-
-## Configuration Validation
-
-### Checklist
-- [ ] TLS 1.2+ enforced for all cardholder data connections
-- [ ] Certificate pinning implemented for API clients
-- [ ] HSTS headers set (min-age: 31536000)
-- [ ] CSP headers restrict inline scripts
-- [ ] Session cookies marked Secure + HttpOnly + SameSite=Strict
-
-### Validation Script
-```bash
-#!/bin/bash
-# Check TLS version
-openssl s_client -connect $HOST:443 -tls1_2 &>/dev/null || echo "FAIL: TLS 1.2 not supported"
-
-# Check HSTS header
-curl -I https://$HOST | grep -i "strict-transport-security" || echo "FAIL: HSTS missing"
-
-# Check CSP header
-curl -I https://$HOST | grep -i "content-security-policy" || echo "WARN: CSP missing"
-```
-
-## Dependency Audit Commands
-
-### Pre-Commit
-```bash
-npm audit --audit-level=moderate
-pip install safety && safety check
-composer audit
-```
-
-### CI/CD Pipeline
-```bash
-# Node.js
-npm ci && npm audit --production
-
-# Python
-pip install pip-audit && pip-audit
-
-# Ruby
-bundle audit check --update
-```
-
-### Incident Response
-```bash
-# Find vulnerable dependency usage
-npm ls vulnerable-package
-grep -r "vulnerable-package" src/
-
-# Force audit on specific package
-npm view vulnerable-package vulnerabilities
-```
-
-## Remediation Path
-1. Scan code nightly and on every PR
-2. Block merge if FAIL rules detected
-3. Escalate HIGH/CRITICAL findings to security team
-4. Document exceptions in compliance log
-5. Re-scan after remediation
-"""
-    
-    # HIPAA scanning rules
-    hipaa_packs = [p for p in compliance_packs if p.get("key") == "hipaa"]
-    if hipaa_packs:
-        files[".specs/compliance/hipaa-scanning.md"] = """---
-title: HIPAA Scanning & Validation Rules
-type: compliance-scanning
-tags: [compliance, hipaa, scanning, security]
-related:
-  - [[.specs/memory.md]]
----
-
-# HIPAA: Scanning & Validation (Level 2)
-
-Automated scanning for PHI protection and audit logging.
-
-## Code Scanning Rules
-
-### Rule: PHI Data Exposure
-- Search: PHI patterns (SSN, MRN, DOB) logged without redaction
-- Tools: `semgrep`, custom regex scanner
-- Command: `grep -r "\\d{{3}}-\\d{{2}}-\\d{{4}}" src/ --include="*.py" --include="*.js"`
-- Fail: Unredacted PHI in logs or error messages
-- Exception: Audit log with encrypted storage
-
-### Rule: Unencrypted PHI Storage
-- Search: Database access without encryption layer
-- Tools: `semgrep`, `sonarqube`
-- Command: `semgrep --config=p/hipaa`
-- Fail: Direct PHI read without decryption
-- Exception: Encrypted database connection with key rotation
-
-### Rule: Unauthorized Access Detection
-- Search: PHI queries without auth check
-- Tools: `semgrep`
-- Command: `grep -r "SELECT.*FROM.*patient" src/ | grep -v "WHERE.*user_id"`
-- Fail: Query missing user/role authorization
-- Exception: Backend-only scheduled tasks with audit logging
-
-## Configuration Validation
-
-### Checklist
-- [ ] All PHI access logged with user ID, timestamp, action
-- [ ] Logs stored in immutable audit system (Splunk, CloudTrail, etc.)
-- [ ] Encryption keys rotated quarterly
-- [ ] Access reviewed monthly for anomalies
-- [ ] Breach response plan documented and tested
-
-### Validation Script
-```bash
-#!/bin/bash
-# Check audit logging enabled
-grep -r "audit" config/ | grep -i "enabled.*true" || echo "FAIL: Audit logging disabled"
-
-# Check encryption in transit
-openssl s_client -connect db.example.com:5432 -tls1_2 &>/dev/null || echo "FAIL: DB TLS not enabled"
-
-# Verify backup encryption
-aws s3api head-object --bucket backups --key latest.sql.enc --sse | grep -i aes256 || echo "FAIL: Backups not encrypted"
-```
-
-## Dependency Audit Commands
-
-### Pre-Commit
-```bash
-npm audit
-pip install bandit && bandit -r src/
-```
-
-### CI/CD Pipeline
-```bash
-# Check for vulnerable health libraries
-npm audit | grep -i crypto
-pip-audit --desc
-```
-
-## Remediation Path
-1. Scan on every commit and nightly
-2. Immediate escalation for PHI exposure
-3. Incident response team notified
-4. Audit trail preserved for investigation
-5. Patient notification if required
-"""
-    
-    # GDPR scanning rules
-    gdpr_packs = [p for p in compliance_packs if p.get("key") == "gdpr"]
-    if gdpr_packs:
-        files[".specs/compliance/gdpr-scanning.md"] = """---
-title: GDPR Scanning & Validation Rules
-type: compliance-scanning
-tags: [compliance, gdpr, scanning, privacy]
-related:
-  - [[.specs/memory.md]]
----
-
-# GDPR: Scanning & Validation (Level 2)
-
-Automated scanning for personal data handling and retention policies.
-
-## Code Scanning Rules
-
-### Rule: Unauthorized Data Collection
-- Search: Network requests to ad networks, trackers without consent
-- Tools: `urlscan`, network proxy analysis
-- Command: Monitor requests to known tracker domains
-- Fail: Tracking requests without user opt-in
-- Exception: Analytics with anonymized data and consent banner
-
-### Rule: Missing Data Deletion
-- Search: Data queries without retention check
-- Tools: `semgrep`, custom scanner
-- Command: `grep -r "User.objects.all()" src/ | grep -v "filter(created_at""`
-- Fail: Query missing automatic deletion logic
-- Exception: Data with active retention policy
-
-### Rule: PII in Transit Unencrypted
-- Search: HTTP (not HTTPS) requests with personal data
-- Tools: Network analysis tools
-- Command: `grep -r "http://" config/ | grep -v localhost`
-- Fail: Unencrypted data transmission
-- Exception: None
-
-## Configuration Validation
-
-### Checklist
-- [ ] Consent tracking: user opt-ins recorded and logged
-- [ ] Retention policy: auto-delete configured for all personal data types
-- [ ] Data export: user can export personal data in standardized format
-- [ ] Right to be forgotten: user deletion purges all linked data
-- [ ] DPA/contracts: Data processing agreements with all vendors
-
-### Validation Script
-```bash
-#!/bin/bash
-# Check retention policy exists
-ls .specs/data-retention.md || echo "FAIL: No retention policy"
-
-# Check consent logging
-grep -r "consent" database_schema.sql | grep -i timestamp || echo "FAIL: Consent timestamp missing"
-
-# Verify deletion script exists and is tested
-test -x scripts/gdpr-deletion.sh || echo "FAIL: GDPR deletion script missing"
-```
-
-## Dependency Audit Commands
-
-### Pre-Commit
-```bash
-npm audit
-pip install privacy-check && privacy-check
-```
-
-### CI/CD Pipeline
-```bash
-# Scan for tracking code
-npm ls | grep -i "google-analytics\\|mixpanel\\|amplitude"
-
-# Verify encryption
-grep -r "https://" config/ | wc -l
-```
-
-## Remediation Path
-1. Scan on PR merge
-2. Consent audit quarterly
-3. Data retention cleanup monthly
-4. Export/deletion features tested in UAT
-5. GDPR impact assessments updated yearly
-"""
-    
-    # SOC2 scanning rules
-    soc2_packs = [p for p in compliance_packs if p.get("key") == "soc2"]
-    if soc2_packs:
-        files[".specs/compliance/soc2-scanning.md"] = """---
-title: SOC2 Scanning & Validation Rules
-type: compliance-scanning
-tags: [compliance, soc2, scanning, security]
-related:
-  - [[.specs/memory.md]]
----
-
-# SOC2: Scanning & Validation (Level 2)
-
-Automated scanning for access controls, change management, and availability.
-
-## Code Scanning Rules
-
-### Rule: Unapproved Production Changes
-- Search: Direct DB access without change ticket
-- Tools: Git hook analysis, deployment tracking
-- Command: `git log --oneline --grep="TICKET" | wc -l`
-- Fail: Commits without ticket reference
-- Exception: Hotfixes with post-incident review
-
-### Rule: Missing Audit Logs
-- Search: User/admin actions without logging
-- Tools: `semgrep`, code review
-- Command: `grep -r "@admin\\|@protected" src/ | grep -v "log\\|audit"`
-- Fail: Protected endpoint without audit trail
-- Exception: Health check endpoints
-
-### Rule: Hardcoded Credentials
-- Search: API keys, DB passwords in config
-- Tools: `gitleaks`, `detect-secrets`
-- Command: `git secrets --scan`
-- Fail: Credential found in source
-- Exception: None (use secrets vault)
-
-## Configuration Validation
-
-### Checklist
-- [ ] All user access logged with timestamp, action, result
-- [ ] Change log captures: who, what, when, approval ticket
-- [ ] Availability monitoring: uptime tracked, SLA documented
-- [ ] Incident response: escalation procedures documented
-- [ ] Access review: quarterly user/role audit
-- [ ] Security testing: penetration testing 1x/year minimum
-
-### Validation Script
-```bash
-#!/bin/bash
-# Check audit logging table exists
-sqlite3 audit.db ".tables" | grep -i audit || echo "FAIL: Audit table missing"
-
-# Check change management system
-curl https://jira.example.com/rest/api/2/search?jql="project=CHANGE" || echo "FAIL: Change tracking unavailable"
-
-# Verify monitoring enabled
-curl https://monitoring.example.com/api/status | grep -i "operational" || echo "FAIL: Monitoring down"
-```
-
-## Dependency Audit Commands
-
-### Pre-Commit
-```bash
-npm audit
-pip install pip-audit && pip-audit
-bundle audit check
-```
-
-### CI/CD Pipeline
-```bash
-# Check for security headers
-npm audit | grep critical
-
-# SBOM generation for vendor review
-cyclonedx-npm -o sbom.xml
-```
-
-### Post-Deployment
-```bash
-# Verify logs are persisted
-tail -f /var/log/application.log | grep -i "access\\|change"
-
-# Confirm backup integrity
-test -f /backup/latest.sql.gz && echo "OK" || echo "FAIL: Backup missing"
-```
-
-## Remediation Path
-1. Scan on every commit
-2. Change tickets auto-rejected without approval
-3. Audit logs sent to immutable storage (S3, syslog)
-4. Access reviews tracked in compliance system
-5. Annual SOC2 readiness assessment
-"""
-    
-    # CCPA/CPRA scanning rules
-    ccpa_packs = [p for p in compliance_packs if p.get("key") == "ccpa"]
-    if ccpa_packs:
-        files[".specs/compliance/ccpa-scanning.md"] = """---
-title: CCPA/CPRA Scanning & Validation Rules
-type: compliance-scanning
-tags: [compliance, ccpa, cpra, scanning, privacy]
-related:
-  - [[.specs/memory.md]]
----
-
-# CCPA/CPRA: Scanning & Validation (Level 2)
-
-Automated scanning for consumer data rights, do-not-sell controls, and opt-out enforcement.
-
-## Code Scanning Rules
-
-### Rule: Do-Not-Sell/Share Not Enforced
-- Search: Data sharing without consumer opt-out check
-- Tools: `semgrep`, data flow analysis
-- Command: `grep -r "share_data\\|sell_data" src/ | grep -v "check_optout\\|verify_consent"`
-- Fail: Data sharing bypassing consumer preferences
-- Exception: None (all sharing must check opt-outs)
-
-### Rule: Unauthorized Third-Party Sharing
-- Search: API calls to data brokers without consumer disclosure
-- Tools: Network analysis, code review
-- Command: `grep -r "api.databroker\\|vendor.api\\|third_party" src/integrations/ | grep -v "# DISCLOSED"`
-- Fail: Third-party data sharing undisclosed
-- Exception: Must add disclosure comment with link to privacy policy
-
-### Rule: Consumer Data Access Not Available
-- Search: Missing data export endpoints or filtering
-- Tools: API scanning
-- Command: `grep -r "/api/data/export\\|/api/consumer-data" src/ | grep -v "@public"`
-- Fail: No consumer-accessible data export
-- Exception: Must implement standardized format export
-
-### Rule: Deletion Request Not Honored
-- Search: Deleted consumer data still queryable or linked
-- Tools: Database audit
-- Command: `grep -r "soft_delete\\|is_deleted=false" database_schema.sql | grep -v "customer_request"`
-- Fail: Soft deletes don't purge linked data
-- Exception: Hard delete with transaction logging
-
-## Configuration Validation
-
-### Checklist
-- [ ] Do-not-sell registry: consumer preferences stored securely
-- [ ] Opt-out signals honored: requests within 45 days
-- [ ] Data access: consumer can export personal information (CSV, JSON)
-- [ ] Deletion: consumer deletion requests executed within 45 days
-- [ ] Sharing disclosures: third-party recipients documented
-- [ ] Sale disclosures: last 12 months sharing history available to consumer
-
-### Validation Script
-```bash
-#!/bin/bash
-# Check do-not-sell enforcement
-SELECT COUNT(*) FROM consumer_preferences WHERE do_not_sell=true AND shared_after_optout=true;
-# Should return 0
-
-# Check data export availability
-curl https://api.example.com/api/me/data-export -H "Authorization: Bearer $TOKEN" | jq '.data | length' || echo "FAIL: Export endpoint missing"
-
-# Check deletion enforcement
-curl -X POST https://api.example.com/api/me/delete-all -H "Authorization: Bearer $TOKEN" 
-sleep 3
-curl https://api.example.com/api/me -H "Authorization: Bearer $TOKEN" | grep "not found" || echo "FAIL: Deletion not enforced"
-```
-
-## Dependency Audit Commands
-
-### Pre-Commit
-```bash
-# Check for unauthorized data broker integrations
-npm ls | grep -E "acxiom|experian|equifax"
-
-# Scan for data sharing code
-grep -r "share\|sell" package.json | grep -v "description"
-```
-
-### CI/CD Pipeline
-```bash
-# Verify do-not-sell field in database
-SELECT * FROM consumer_preferences WHERE do_not_sell IS NULL LIMIT 1;
-# Should return 0 rows
-
-# Check data retention policies
-grep -r "RETENTION_DAYS\\|DELETE AFTER" src/scheduled_jobs
-```
-
-### Monthly Audit
-```bash
-# Verify deletion requests processed
-SELECT COUNT(*) FROM deletion_requests WHERE created_at > DATE_SUB(NOW(), INTERVAL 45 DAY) AND completed_at IS NULL;
-# Should be < 5
-
-# Check opt-out honor rate
-SELECT COUNT(*) FROM consumer_preferences WHERE do_not_sell=true AND last_shared < last_optout_date;
-```
-
-## Remediation Path
-1. Block data sharing if do-not-sell flag set
-2. Deletion requests processed within 30 days (buffer before 45-day deadline)
-3. Daily audit of opt-out violations
-4. Quarterly consumer rights audit
-5. Annual CCPA compliance certification
-"""
-    
-    # ISO27001 scanning rules
-    iso_packs = [p for p in compliance_packs if p.get("key") == "iso27001"]
-    if iso_packs:
-        files[".specs/compliance/iso27001-scanning.md"] = """---
-title: ISO 27001 Scanning & Validation Rules
-type: compliance-scanning
-tags: [compliance, iso27001, scanning, security]
-related:
-  - [[.specs/memory.md]]
----
-
-# ISO 27001: Scanning & Validation (Level 2)
-
-Automated scanning for information security controls, risk management, and asset management.
-
-## Code Scanning Rules
-
-### Rule: Unclassified Assets
-- Search: Infrastructure/data without classification tag
-- Tools: Cloud asset inventory tools, custom scanner
-- Command: `aws ec2 describe-instances | grep -v Classification || echo "FAIL: Unclassified asset detected"`
-- Fail: Asset missing security classification
-- Exception: None (all assets must be classified)
-
-### Rule: Unapproved Security Exceptions
-- Search: Security controls disabled without documented exception
-- Tools: `semgrep`, configuration analysis
-- Command: `grep -r "DISABLE_SECURITY\\|SKIP_VALIDATION" src/ | grep -v "TICKET"`
-- Fail: Control bypassed without exception ticket
-- Exception: Documented in risk register with management approval
-
-### Rule: Missing Incident Logging
-- Search: Security events not logged
-- Tools: Log aggregation analysis
-- Command: `grep -r "except.*pass\\|except.*continue" src/security/ | grep -v "log"`
-- Fail: Exception caught without logging
-- Exception: None (all security events must be logged)
-
-### Rule: Access Rights Not Reviewed
-- Search: Long-standing access without review metadata
-- Tools: Identity management audit
-- Command: `SELECT user_id, access_grant_date FROM access_grants WHERE review_date IS NULL OR review_date < DATE_SUB(NOW(), INTERVAL 1 YEAR);`
-- Fail: Access not reviewed in 12 months
-- Exception: None (annual access reviews mandatory)
-
-## Configuration Validation
-
-### Checklist
-- [ ] Asset inventory: all IT assets catalogued with classification
-- [ ] Risk register: identified risks documented with controls
-- [ ] Access review: all user/role access reviewed quarterly
-- [ ] Incident management: security events logged, classified, responded
-- [ ] Supplier management: critical vendors audited annually
-- [ ] Backup/recovery: tested quarterly, RTO/RPO documented
-- [ ] Security training: annual awareness training for all staff
-- [ ] Penetration testing: annual pen test by external firm
-
-### Validation Script
-```bash
-#!/bin/bash
-# Check asset inventory completeness
-TOTAL_ASSETS=$(aws ec2 describe-instances --query 'Reservations[].Instances[].InstanceId' --output text | wc -w)
-CLASSIFIED=$(aws ec2 describe-instances --query 'Reservations[].Instances[].Tags[?Key==`Classification`].Value' --output text | wc -w)
-echo "Classified: $CLASSIFIED / $TOTAL_ASSETS"
-[ $CLASSIFIED -eq $TOTAL_ASSETS ] || echo "FAIL: Unclassified assets detected"
-
-# Check incident response plan exists
-test -f .specs/incident-response-plan.md || echo "FAIL: No incident response plan"
-
-# Check access review documentation
-ls .specs/access-reviews/*.md | wc -l
-# Should be >= 1
-```
-
-## Dependency Audit Commands
-
-### Pre-Commit
-```bash
-# Check for unapproved security bypasses
-grep -r "disable\\|skip\\|bypass" src/ --include="*.py" --include="*.js" | grep -i security
-
-# Verify all exceptions documented
-grep -r "EXCEPTION\\|WAIVER" src/ | grep -v TICKET
-```
-
-### Quarterly
-```bash
-# Audit user access rights
-SELECT user_id, role, access_grant_date FROM access_grants ORDER BY access_grant_date DESC;
-
-# Check control effectiveness
-grep -r "test.*control\\|verify.*rule" tests/ | wc -l
-# Should be > 50
-```
-
-### Annual
-```bash
-# Review risk register
-cat .specs/risk-register.md | grep -c "^##"
-# Should document top 10 risks with controls
-
-# Check penetration test results
-ls .specs/pentest-*.pdf | sort -V | tail -1
-# Should be recent
-```
-
-## Remediation Path
-1. Maintain current risk register with treatment plans
-2. Conduct quarterly access reviews
-3. Patch critical/high vulnerabilities within 30 days
-4. Incident response drill quarterly
-5. Annual ISO 27001 control assessment
-6. Management review semi-annually
-"""
-    
-    return files
+{gen_functions_setup}
 
 
 def generate_files(project_dir: Path, ctx: dict, markdown_context: list[dict], check_mode: bool = False) -> tuple[list[str], list[str]]:
@@ -3146,7 +2306,7 @@ related:
         append_changelog(project_dir / ".ai-docs" / "CHANGELOG.md", f"Generated/updated {{len(changed_files)}} files.")
         generated.append(".ai-docs/CHANGELOG.md")
 
-        write_metadata(project_dir, ctx, sorted(generated))
+        write_metadata_simple(project_dir, ctx, sorted(generated))
         generated.append(".ai-docs/metadata.json")
 
     return sorted(generated), sorted(changed_files)
