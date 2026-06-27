@@ -23,9 +23,10 @@ The bootstrap scans a target project and creates standardized AI documentation f
 It supports:
 
 - New vs existing project detection
-- Stack detection from common manifests
+- Stack detection from common manifests (`package.json`, `pyproject.toml`, `composer.json`, `Package.swift`, etc.)
 - Prompted onboarding for new projects
 - Stack presets for common setups
+- Starter app-intent profiles (`general-app`, `chatbot`, `crm`) plus any custom intent (for example analytics, crash-logger, social, ewallet, chat-app, ride-booking, ecommerce, scraper, gaming, travel, legal-tech, gov-tech, ad-tech)
 - Deterministic freshness checks for CI
 - Stale report output for review artifacts
 - User-custom section preservation across regenerations
@@ -126,10 +127,35 @@ Exit codes:
 ./ai-docs-bootstrap --project /path/to/project --mode new --non-interactive
 ```
 
+### Non-interactive with intent/compliance (CI-friendly)
+
+```bash
+./ai-docs-bootstrap \
+   --project /path/to/project \
+   --mode new \
+   --non-interactive \
+   --intent "ride booking ecommerce payments" \
+   --compliance "soc2,gdpr"
+```
+
+Notes:
+
+- `--intent` accepts any free-text app intent.
+- `--compliance` accepts comma-separated keys: `pci-dss,hipaa,soc2,gdpr,ccpa,iso27001`.
+- Intent ranking in `.ai-docs/APP-BLUEPRINT.md` uses confidence scoring and stack-aware tie-breaks.
+
 ### Write stale report (for CI artifacts)
 
 ```bash
 ./ai-docs-bootstrap --project /path/to/project --mode existing --check --report-path .ai-docs-check-report.md
+```
+
+### Discover available options (no prompts)
+
+```bash
+./ai-docs-bootstrap --list-stack-presets
+./ai-docs-bootstrap --list-intents
+./ai-docs-bootstrap --list-compliance
 ```
 
 ## Stack Presets
@@ -139,9 +165,56 @@ In new-project onboarding, you can select:
 - `react-ts`
 - `next-ts`
 - `node-api`
+- `express-ts`
+- `fastify-ts`
+- `nestjs`
+- `angular`
+- `vue`
+- `react-native`
+- `nuxt`
+- `sveltekit`
+- `laravel`
+- `django`
+- `go-fiber`
+- `spring-boot`
+- `dotnet-webapi`
+- `swift-vapor`
+- `swift-ios`
 - `fastapi`
 
 Preset values are merged with manually entered languages/frameworks/tests/linting.
+The displayed preset list in CLI is generated dynamically from `STACK_PRESETS`.
+
+### App Intents
+
+In new-project onboarding, you can pick a starter app intent profile:
+
+- `general-app`
+- `chatbot`
+- `crm`
+
+You can also enter any custom app intent (for example: analytics, crash-logger, social-app, ewallet, whatsapp-style chat, ride-booking, ecommerce, scraper, gaming, travel, legal-tech, gov-tech, ad-tech, or anything else). The generator maps known keywords to targeted guidance and falls back to strong general defaults when no keyword matches.
+
+When multiple intent keywords are present, the generator ranks matched domains and shows scoring in `.ai-docs/APP-BLUEPRINT.md`.
+
+You can optionally add compliance packs during onboarding:
+
+- `pci-dss`
+- `hipaa`
+- `soc2`
+- `gdpr`
+- `ccpa`
+- `iso27001`
+
+Compliance can also be auto-suggested from app intent keywords (for example, wallet/payments -> PCI DSS, health -> HIPAA, social/ad-tech -> GDPR/CCPA, enterprise SaaS -> SOC 2/ISO 27001).
+
+The generated blueprint also includes:
+
+- Recommended package set aligned to current ecosystem standards for detected stack/frameworks
+- Stale/deprecated package warnings with modern alternatives
+- Security audit command checklist to run before installing new dependencies
+
+This adds targeted implementation guidance and generates `.ai-docs/APP-BLUEPRINT.md` with capability checklists and stack-specific notes (React/Node/Laravel/Python).
 
 ## Generated Output
 
@@ -155,6 +228,7 @@ Typical files include:
 - `CODEX.md`
 - `ANTIGRAVITY.md`
 - `.ai-docs/CONTEXT-SNAPSHOT.md`
+- `.ai-docs/APP-BLUEPRINT.md`
 - `.ai-docs/FEEDBACK.md`
 - `.ai-docs/ROADMAP.md`
 - `.ai-docs/SECURITY.md`
@@ -194,9 +268,16 @@ This repository includes `.github/workflows/ai-docs-freshness.yml`:
 3. Keep team-specific notes inside user-custom blocks.
 4. Use `--check` mode in CI to enforce freshness.
 
+## Developer-Friendly Tips
+
+- For CI/non-interactive setup, use `--intent` and `--compliance` to avoid prompts.
+- Run discovery flags (`--list-*`) before choosing presets/intents.
+- Review `.ai-docs/APP-BLUEPRINT.md` first; it now includes ranked intents, package recommendations, stale-package warnings, and security-audit commands.
+
 ## Troubleshooting
 
 - If check mode fails unexpectedly, regenerate docs once and rerun check.
+- For brand-new temporary projects, run one extra generation pass before `--check` (the `make smoke`/`make doctor` flows already do this).
 - If running new-project checks in CI, add `--non-interactive` or force `--mode existing`.
 - If Python cannot import `tomllib`, use Python 3.11+.
 

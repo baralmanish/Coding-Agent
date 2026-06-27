@@ -1,0 +1,53 @@
+import importlib.machinery
+import importlib.util
+import unittest
+from pathlib import Path
+
+
+def load_bootstrap_module():
+    root = Path(__file__).resolve().parents[1]
+    script_path = root / "ai-docs-bootstrap"
+    loader = importlib.machinery.SourceFileLoader("ai_docs_bootstrap", str(script_path))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    if spec is None:
+        raise RuntimeError(f"Unable to build module spec for {script_path}")
+
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+mod = load_bootstrap_module()
+
+
+class IntentComplianceTests(unittest.TestCase):
+    def test_parse_compliance_input_aliases_and_dedup(self):
+        keys = mod.parse_compliance_input("soc2,SOC-2,pci,gdpr,unknown")
+        self.assertEqual(keys, ["soc2", "pci-dss", "gdpr"])
+
+    def test_resolve_compliance_packs_auto_detects_from_intent(self):
+        packs = mod.resolve_compliance_packs("wallet payments app", ["soc2"])
+        keys = [pack["key"] for pack in packs]
+        self.assertIn("soc2", keys)
+        self.assertIn("pci-dss", keys)
+
+    def test_resolve_app_blueprint_ranks_intents_with_framework_bonus(self):
+        _, _, blueprint = mod.resolve_app_blueprint(
+            "ride booking ecommerce payments",
+            {"frameworks": ["Next.js"], "languages": ["TypeScript"]},
+        )
+
+        ranking = blueprint.get("intent_ranking", [])
+        self.assertGreater(len(ranking), 0)
+        self.assertEqual(ranking[0]["label"], "E-Commerce")
+        self.assertGreaterEqual(ranking[0].get("framework_bonus", 0), 1)
+
+    def test_known_intent_uses_starter_profile(self):
+        key, raw, blueprint = mod.resolve_app_blueprint("chatbot", {"frameworks": ["React"]})
+        self.assertEqual(key, "chatbot")
+        self.assertEqual(raw, "chatbot")
+        self.assertEqual(blueprint.get("label"), "Chatbot")
+
+
+if __name__ == "__main__":
+    unittest.main()

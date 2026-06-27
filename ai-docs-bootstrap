@@ -63,6 +63,156 @@ STACK_PRESETS = {
             "Add integration tests for critical API paths.",
         ],
     },
+    "express-ts": {
+        "languages": ["TypeScript"],
+        "frameworks": ["Express"],
+        "tests": ["vitest", "supertest"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Define API contracts and validate request/response payloads.",
+            "Use centralized error handling and structured logging.",
+        ],
+    },
+    "fastify-ts": {
+        "languages": ["TypeScript"],
+        "frameworks": ["Fastify"],
+        "tests": ["vitest", "supertest"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Use schema-first routes for validation and speed.",
+            "Enable serialization and benchmark critical endpoints.",
+        ],
+    },
+    "nestjs": {
+        "languages": ["TypeScript"],
+        "frameworks": ["NestJS"],
+        "tests": ["jest", "supertest"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Organize by bounded modules and enforce DTO validation.",
+            "Use e2e test modules for critical workflows.",
+        ],
+    },
+    "angular": {
+        "languages": ["TypeScript"],
+        "frameworks": ["Angular"],
+        "tests": ["jest", "cypress"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Use strict template/type checks and standalone components.",
+            "Add component integration tests for key user journeys.",
+        ],
+    },
+    "vue": {
+        "languages": ["TypeScript"],
+        "frameworks": ["Vue"],
+        "tests": ["vitest", "@vue/test-utils", "playwright"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Adopt composables for reusable logic and better testability.",
+            "Add route-level tests for stateful flows.",
+        ],
+    },
+    "react-native": {
+        "languages": ["TypeScript"],
+        "frameworks": ["React Native"],
+        "tests": ["jest", "@testing-library/react-native", "detox"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Separate UI and platform services to simplify testing.",
+            "Validate navigation and offline scenarios with e2e tests.",
+        ],
+    },
+    "laravel": {
+        "languages": ["PHP"],
+        "frameworks": ["Laravel"],
+        "tests": ["phpunit", "pest"],
+        "linting": ["php-cs-fixer", "larastan"],
+        "suggestions": [
+            "Use form requests/policies for validation and authorization.",
+            "Cover jobs/events and critical endpoints with feature tests.",
+        ],
+    },
+    "nuxt": {
+        "languages": ["TypeScript"],
+        "frameworks": ["Nuxt"],
+        "tests": ["vitest", "playwright"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Use server routes and composables with explicit contracts.",
+            "Add rendering and navigation tests for core pages.",
+        ],
+    },
+    "sveltekit": {
+        "languages": ["TypeScript"],
+        "frameworks": ["SvelteKit"],
+        "tests": ["vitest", "playwright"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Keep load/actions predictable and strongly typed.",
+            "Test server/client boundaries for auth and data flows.",
+        ],
+    },
+    "django": {
+        "languages": ["Python"],
+        "frameworks": ["Django"],
+        "tests": ["pytest", "pytest-django"],
+        "linting": ["ruff", "mypy"],
+        "suggestions": [
+            "Use service-layer patterns for complex business logic.",
+            "Add integration tests for ORM queries and permissions.",
+        ],
+    },
+    "go-fiber": {
+        "languages": ["Go"],
+        "frameworks": ["Fiber"],
+        "tests": ["go test"],
+        "linting": ["golangci-lint"],
+        "suggestions": [
+            "Keep handlers thin and move business logic to services.",
+            "Use benchmarks for high-throughput endpoints.",
+        ],
+    },
+    "spring-boot": {
+        "languages": ["Java"],
+        "frameworks": ["Spring Boot"],
+        "tests": ["junit", "testcontainers"],
+        "linting": ["checkstyle", "spotbugs"],
+        "suggestions": [
+            "Use layered architecture with clear domain boundaries.",
+            "Add integration tests for repositories and APIs.",
+        ],
+    },
+    "dotnet-webapi": {
+        "languages": ["C#"],
+        "frameworks": ["ASP.NET Core"],
+        "tests": ["xunit"],
+        "linting": ["dotnet format"],
+        "suggestions": [
+            "Use DTO validation and strict API contracts.",
+            "Add integration tests with WebApplicationFactory.",
+        ],
+    },
+    "swift-vapor": {
+        "languages": ["Swift"],
+        "frameworks": ["Vapor"],
+        "tests": ["xctest"],
+        "linting": ["swift-format", "swiftlint"],
+        "suggestions": [
+            "Use typed DTOs and explicit validation for request handlers.",
+            "Add integration tests for routes and middleware pipelines.",
+        ],
+    },
+    "swift-ios": {
+        "languages": ["Swift"],
+        "frameworks": ["SwiftUI"],
+        "tests": ["xctest"],
+        "linting": ["swift-format", "swiftlint"],
+        "suggestions": [
+            "Structure state with clear view-model boundaries for testability.",
+            "Add UI and unit tests for navigation, state transitions, and error paths.",
+        ],
+    },
     "fastapi": {
         "languages": ["Python"],
         "frameworks": ["FastAPI"],
@@ -75,6 +225,549 @@ STACK_PRESETS = {
     },
 }
 
+APP_ARCHETYPES = {
+    "general-app": {
+        "label": "General App",
+        "description": "Balanced defaults for product and platform features.",
+        "capabilities": [
+            "Authentication and authorization",
+            "Core CRUD/API workflows",
+            "Observability (logs, metrics, traces)",
+        ],
+        "suggestions": [
+            "Define clear domain modules and API boundaries early.",
+            "Add integration tests for high-value user workflows.",
+        ],
+    },
+    "chatbot": {
+        "label": "Chatbot",
+        "description": "Conversational product with retrieval and safety controls.",
+        "capabilities": [
+            "Conversation/session state",
+            "Prompt and tool orchestration",
+            "Knowledge retrieval (RAG) and grounding",
+            "Guardrails, moderation, and abuse controls",
+        ],
+        "suggestions": [
+            "Version prompts and evaluate responses against test datasets.",
+            "Implement latency/error budgets for model and retrieval calls.",
+            "Add red-team safety cases and policy checks in CI.",
+        ],
+    },
+    "crm": {
+        "label": "CRM",
+        "description": "Business application with multi-role workflows and data integrity.",
+        "capabilities": [
+            "Accounts/contacts/opportunities lifecycle",
+            "Role-based access control and audit logs",
+            "Search/filter/reporting dashboards",
+            "Background jobs and integration webhooks",
+        ],
+        "suggestions": [
+            "Model entities and relationships before implementing endpoints/UI.",
+            "Enforce RBAC and auditability for all sensitive mutations.",
+            "Add migration and seed strategy for predictable environments.",
+        ],
+    },
+}
+
+INTENT_KEYWORD_BLUEPRINTS = [
+    (
+        ["analytics", "bi", "dashboard", "reporting"],
+        {
+            "label": "Analytics",
+            "capabilities": [
+                "Event ingestion and schema validation",
+                "Aggregation pipelines and materialized views",
+                "Role-based dashboards and export workflows",
+            ],
+            "suggestions": [
+                "Define event taxonomy/versioning before implementation.",
+                "Add data quality and backfill verification checks in CI.",
+            ],
+        },
+    ),
+    (
+        ["crash", "logger", "error", "observability", "monitoring"],
+        {
+            "label": "Crash Logger",
+            "capabilities": [
+                "Client/server error capture pipelines",
+                "Deduplication, fingerprinting, and issue grouping",
+                "Alert routing and incident triage workflows",
+            ],
+            "suggestions": [
+                "Capture structured context while redacting sensitive data.",
+                "Define alert severity SLOs to reduce notification noise.",
+            ],
+        },
+    ),
+    (
+        ["social", "community", "feed", "network"],
+        {
+            "label": "Social App",
+            "capabilities": [
+                "Profiles, follows/friendships, and privacy controls",
+                "Feed ranking, reactions, and comment moderation",
+                "Notifications and abuse-report workflows",
+            ],
+            "suggestions": [
+                "Design moderation and anti-abuse controls from day one.",
+                "Use idempotent event processing for feed and notification fanout.",
+            ],
+        },
+    ),
+    (
+        ["wallet", "ewallet", "e-wallet", "payments", "fintech"],
+        {
+            "label": "E-Wallet",
+            "capabilities": [
+                "Ledger-based balances and transaction history",
+                "KYC/compliance gates and fraud checks",
+                "Reconciliation jobs and dispute workflows",
+            ],
+            "suggestions": [
+                "Use append-only transaction logs and idempotency keys.",
+                "Enforce strict authorization and audit trails on money movement.",
+            ],
+        },
+    ),
+    (
+        ["chat", "messaging", "whatsapp", "telegram"],
+        {
+            "label": "Chat App",
+            "capabilities": [
+                "Real-time messaging and delivery status",
+                "Presence, typing indicators, and unread state",
+                "Media attachments and retention policies",
+            ],
+            "suggestions": [
+                "Use durable message ids and retry-safe delivery semantics.",
+                "Add abuse/spam protection and privacy-preserving defaults.",
+            ],
+        },
+    ),
+    (
+        ["ride", "booking", "mobility", "taxi", "cab"],
+        {
+            "label": "Ride Booking",
+            "capabilities": [
+                "Rider/driver matching and dispatch",
+                "Live location tracking and ETA updates",
+                "Fare calculation, wallet, and trip settlement",
+            ],
+            "suggestions": [
+                "Use geospatial indexing and event-driven trip state transitions.",
+                "Design retry-safe booking/payment workflows with idempotency keys.",
+            ],
+        },
+    ),
+    (
+        ["ecommerce", "e-commerce", "commerce", "marketplace", "shop", "store"],
+        {
+            "label": "E-Commerce",
+            "capabilities": [
+                "Catalog/search, cart, and checkout flows",
+                "Inventory, order lifecycle, and fulfillment",
+                "Promotions, returns, and payment integration",
+            ],
+            "suggestions": [
+                "Model order states explicitly and keep payment webhooks idempotent.",
+                "Add anti-fraud, stock reservation, and reconciliation workflows.",
+            ],
+        },
+    ),
+    (
+        ["scraper", "scrapping", "scraping", "crawler", "crawl", "extract"],
+        {
+            "label": "Scraper / Data Ingestion",
+            "capabilities": [
+                "Crawl scheduling and polite rate limiting",
+                "Parsing, normalization, and deduplication pipelines",
+                "Storage, retry queues, and failure recovery",
+            ],
+            "suggestions": [
+                "Respect robots.txt/terms and enforce adaptive throttling.",
+                "Use deterministic parsing contracts and monitor extraction drift.",
+            ],
+        },
+    ),
+    (
+        ["delivery", "logistics", "supply", "fulfillment"],
+        {
+            "label": "Delivery / Logistics",
+            "capabilities": [
+                "Shipment planning and routing workflows",
+                "Real-time package status and exception handling",
+                "Proof-of-delivery and partner integrations",
+            ],
+            "suggestions": [
+                "Track route and status transitions as immutable events.",
+                "Build SLA alerts for delayed or failed fulfillment stages.",
+            ],
+        },
+    ),
+    (
+        ["saas", "b2b", "multi-tenant", "tenant"],
+        {
+            "label": "B2B SaaS",
+            "capabilities": [
+                "Multi-tenant data isolation and tenant configuration",
+                "Subscription/billing and feature entitlements",
+                "Admin controls, audit logs, and SSO",
+            ],
+            "suggestions": [
+                "Enforce tenant scoping in every query and API boundary.",
+                "Model feature flags/plan entitlements as first-class policies.",
+            ],
+        },
+    ),
+    (
+        ["video", "streaming", "ott", "media"],
+        {
+            "label": "Media / Streaming",
+            "capabilities": [
+                "Content ingestion/transcoding pipeline",
+                "Playback sessions, recommendations, and watch state",
+                "DRM/access control and CDN delivery strategy",
+            ],
+            "suggestions": [
+                "Use async job orchestration for media processing stages.",
+                "Track QoE metrics (startup time, buffering, failure rate).",
+            ],
+        },
+    ),
+    (
+        ["realtime", "real-time", "collaboration", "whiteboard", "doc"],
+        {
+            "label": "Realtime Collaboration",
+            "capabilities": [
+                "Concurrent editing/session presence",
+                "Conflict resolution and state synchronization",
+                "Permissions and activity history",
+            ],
+            "suggestions": [
+                "Use CRDT/OT-inspired models for concurrent edits.",
+                "Persist operation logs for replay and debugging.",
+            ],
+        },
+    ),
+    (
+        ["health", "clinic", "ehr", "emr", "telemedicine"],
+        {
+            "label": "Health Tech",
+            "capabilities": [
+                "Patient/provider workflows and scheduling",
+                "Clinical records and consent management",
+                "Secure messaging and compliance audit trails",
+            ],
+            "suggestions": [
+                "Apply strict data minimization, encryption, and retention controls.",
+                "Enforce explicit access auditing for sensitive record access.",
+            ],
+        },
+    ),
+    (
+        ["edtech", "learning", "lms", "course", "quiz"],
+        {
+            "label": "EdTech",
+            "capabilities": [
+                "Course/content organization and learner progress tracking",
+                "Assessments, submissions, and grading workflows",
+                "Instructor dashboards and feedback loops",
+            ],
+            "suggestions": [
+                "Model learner progress as resumable state machines.",
+                "Add anti-cheating and assessment integrity checks where needed.",
+            ],
+        },
+    ),
+    (
+        ["job", "recruit", "ats", "hiring", "hr"],
+        {
+            "label": "Recruitment / HR",
+            "capabilities": [
+                "Job posting and candidate pipeline management",
+                "Interview scheduling and feedback workflows",
+                "Role-based access and confidential note handling",
+            ],
+            "suggestions": [
+                "Use pipeline stage transitions with explicit audit events.",
+                "Enforce strict visibility rules for candidate data.",
+            ],
+        },
+    ),
+    (
+        ["iot", "device", "sensor", "telemetry", "edge"],
+        {
+            "label": "IoT Platform",
+            "capabilities": [
+                "Device provisioning and identity lifecycle",
+                "Telemetry ingestion, alerting, and dashboards",
+                "Firmware rollout and remote command workflows",
+            ],
+            "suggestions": [
+                "Treat device identity/cert rotation as core security workflows.",
+                "Use partitioned ingestion and backpressure control for burst traffic.",
+            ],
+        },
+    ),
+    (
+        ["finops", "billing", "invoice", "subscription", "metering"],
+        {
+            "label": "Billing / FinOps",
+            "capabilities": [
+                "Usage metering and pricing policy engine",
+                "Invoice generation and payment reconciliation",
+                "Credit adjustments and dispute handling",
+            ],
+            "suggestions": [
+                "Separate rating, billing, and invoicing into distinct services.",
+                "Version pricing rules to keep historical invoices reproducible.",
+            ],
+        },
+    ),
+    (
+        ["gaming", "game", "esports", "leaderboard"],
+        {
+            "label": "Gaming",
+            "capabilities": [
+                "Player progression and achievements",
+                "Matchmaking and session lifecycle",
+                "Leaderboards, anti-cheat, and moderation",
+            ],
+            "suggestions": [
+                "Design anti-abuse and anti-cheat signals early.",
+                "Use event sourcing for progression and reward reconciliation.",
+            ],
+        },
+    ),
+    (
+        ["travel", "booking-engine", "hotel", "flight", "trip"],
+        {
+            "label": "Travel",
+            "capabilities": [
+                "Availability/pricing search and booking flows",
+                "Reservation lifecycle and cancellation policies",
+                "Supplier integrations and itinerary management",
+            ],
+            "suggestions": [
+                "Treat booking state transitions as idempotent workflows.",
+                "Implement supplier retry/compensation for partial failures.",
+            ],
+        },
+    ),
+    (
+        ["legal", "contract", "case", "compliance-ops"],
+        {
+            "label": "Legal Tech",
+            "capabilities": [
+                "Document lifecycle and clause extraction",
+                "Case/matter workflows and deadline tracking",
+                "Access controls and evidentiary audit logs",
+            ],
+            "suggestions": [
+                "Track document lineage and immutable review history.",
+                "Enforce fine-grained permissions for privileged content.",
+            ],
+        },
+    ),
+    (
+        ["gov", "government", "public-sector", "citizen"],
+        {
+            "label": "GovTech",
+            "capabilities": [
+                "Citizen service workflows and case handling",
+                "Identity verification and role-bound approvals",
+                "Records retention and transparency reporting",
+            ],
+            "suggestions": [
+                "Model approval chains explicitly with audit evidence.",
+                "Apply strict data retention and redaction controls.",
+            ],
+        },
+    ),
+    (
+        ["adtech", "ads", "campaign", "attribution", "marketing"],
+        {
+            "label": "AdTech",
+            "capabilities": [
+                "Campaign management and targeting controls",
+                "Attribution and conversion measurement pipelines",
+                "Budget pacing and fraud detection",
+            ],
+            "suggestions": [
+                "Separate serving, measurement, and billing pipelines.",
+                "Enforce consent-aware tracking and privacy controls.",
+            ],
+        },
+    ),
+]
+
+COMPLIANCE_PACKS = {
+    "pci-dss": {
+        "name": "PCI DSS",
+        "trigger_keywords": ["wallet", "ewallet", "payments", "fintech", "checkout", "commerce"],
+        "checks": [
+            "Tokenize payment data and avoid storing PAN/CVV in application systems.",
+            "Enforce network segmentation and least-privilege access for payment paths.",
+            "Run regular vulnerability scans and monitored audit trails for card workflows.",
+        ],
+    },
+    "hipaa": {
+        "name": "HIPAA",
+        "trigger_keywords": ["health", "clinic", "ehr", "emr", "telemedicine", "patient"],
+        "checks": [
+            "Restrict PHI access with role-based controls and just-in-time authorization.",
+            "Encrypt PHI in transit and at rest with key rotation and access logs.",
+            "Maintain breach response procedures and immutable access audit trails.",
+        ],
+    },
+    "soc2": {
+        "name": "SOC 2",
+        "trigger_keywords": ["saas", "b2b", "enterprise", "tenant"],
+        "checks": [
+            "Document change management and approval workflows for production releases.",
+            "Enforce periodic access reviews, offboarding, and least-privilege controls.",
+            "Track availability/security incidents and corrective actions with evidence.",
+        ],
+    },
+    "gdpr": {
+        "name": "GDPR",
+        "trigger_keywords": ["social", "analytics", "adtech", "tracking", "marketing", "profile"],
+        "checks": [
+            "Implement consent management and lawful-basis tracking for personal data.",
+            "Support data subject rights: export, correction, deletion, and processing restrictions.",
+            "Apply data minimization and retention policies with enforcement automation.",
+        ],
+    },
+    "ccpa": {
+        "name": "CCPA/CPRA",
+        "trigger_keywords": ["social", "analytics", "adtech", "consumer", "tracking"],
+        "checks": [
+            "Implement do-not-sell/share controls and consumer data access requests.",
+            "Classify personal information categories and purpose of use.",
+            "Audit third-party data sharing and contractual obligations.",
+        ],
+    },
+    "iso27001": {
+        "name": "ISO 27001",
+        "trigger_keywords": ["enterprise", "gov", "government", "public-sector", "b2b", "saas"],
+        "checks": [
+            "Maintain risk register, treatment plans, and control ownership evidence.",
+            "Define asset inventory and classification with handling requirements.",
+            "Run incident response exercises and control effectiveness reviews.",
+        ],
+    },
+}
+
+COMPLIANCE_ALIASES = {
+    "pci": "pci-dss",
+    "pcidss": "pci-dss",
+    "pci-dss": "pci-dss",
+    "hipaa": "hipaa",
+    "soc2": "soc2",
+    "soc-2": "soc2",
+    "gdpr": "gdpr",
+    "ccpa": "ccpa",
+    "cpra": "ccpa",
+    "iso27001": "iso27001",
+    "iso-27001": "iso27001",
+}
+
+FRAMEWORK_INTENT_HINTS = {
+    "Next.js": {"E-Commerce": 2, "AdTech": 1},
+    "React": {"Social App": 1, "E-Commerce": 1},
+    "Express": {"Ride Booking": 1, "E-Commerce": 1, "AdTech": 1},
+    "Fastify": {"Ride Booking": 1, "AdTech": 1},
+    "NestJS": {"B2B SaaS": 1, "IoT Platform": 1},
+    "Laravel": {"E-Commerce": 2, "CRM": 1},
+    "FastAPI": {"Analytics": 1, "Health Tech": 1, "Scraper / Data Ingestion": 1},
+    "Django": {"CRM": 1, "EdTech": 1, "Health Tech": 1},
+    "Spring Boot": {"B2B SaaS": 1, "GovTech": 1},
+    "ASP.NET Core": {"B2B SaaS": 1, "GovTech": 1},
+}
+
+PACKAGE_GUIDANCE = {
+    "React": {
+        "recommended": ["react-query (@tanstack/react-query)", "zod", "react-hook-form", "date-fns"],
+        "avoid": ["moment -> prefer date-fns/dayjs", "redux-form -> prefer react-hook-form"],
+    },
+    "Next.js": {
+        "recommended": ["next-safe-action", "zod", "@tanstack/react-query", "next-auth/auth.js"],
+        "avoid": ["next-routes -> use App Router", "moment -> prefer date-fns/dayjs"],
+    },
+    "Express": {
+        "recommended": ["zod", "pino", "helmet", "rate-limiter-flexible"],
+        "avoid": ["request -> use native fetch/undici", "winston-only stacks -> consider pino for perf"],
+    },
+    "Fastify": {
+        "recommended": ["@fastify/helmet", "@fastify/rate-limit", "zod", "pino"],
+        "avoid": ["request -> use native fetch/undici"],
+    },
+    "NestJS": {
+        "recommended": ["class-validator", "class-transformer", "@nestjs/swagger", "pino"],
+        "avoid": ["request -> use native fetch/undici"],
+    },
+    "Vue": {
+        "recommended": ["pinia", "vue-query", "zod", "dayjs"],
+        "avoid": ["moment -> prefer dayjs/date-fns"],
+    },
+    "Angular": {
+        "recommended": ["ngrx", "zod", "rxjs", "date-fns"],
+        "avoid": ["tslint -> use eslint"],
+    },
+    "Laravel": {
+        "recommended": ["laravel/sanctum", "spatie/laravel-permission", "laravel/pint", "larastan/larastan"],
+        "avoid": ["abandoned packages in composer.lock -> replace with maintained alternatives"],
+    },
+    "FastAPI": {
+        "recommended": ["pydantic-settings", "httpx", "sqlmodel/alembic", "structlog"],
+        "avoid": ["requests in async routes -> use httpx", "pydantic v1-only libs -> prefer v2-ready libs"],
+    },
+    "Django": {
+        "recommended": ["django-environ", "django-filter", "djangorestframework", "sentry-sdk"],
+        "avoid": ["django-rest-swagger -> use drf-spectacular"],
+    },
+}
+
+SECURITY_AUDIT_COMMANDS = {
+    "npm/pnpm/yarn": [
+        "npm audit --omit=dev",
+        "pnpm audit",
+        "yarn npm audit",
+    ],
+    "pip/poetry": [
+        "python -m pip install pip-audit",
+        "pip-audit",
+        "poetry export -f requirements.txt --without-hashes | pip-audit -r /dev/stdin",
+    ],
+    "composer": [
+        "composer audit",
+    ],
+    "go modules": [
+        "go install golang.org/x/vuln/cmd/govulncheck@latest",
+        "govulncheck ./...",
+    ],
+    "cargo": [
+        "cargo install cargo-audit",
+        "cargo audit",
+    ],
+    "nuget": [
+        "dotnet list package --vulnerable --include-transitive",
+    ],
+    "maven/gradle": [
+        "mvn org.owasp:dependency-check-maven:check",
+        "./gradlew dependencyCheckAnalyze",
+    ],
+    "bundler": [
+        "bundle audit check --update",
+    ],
+    "SwiftPM": [
+        "swift package resolve && swift package show-dependencies",
+    ],
+}
+
 
 def now_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -84,9 +777,19 @@ def hash_text(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
+def current_script_sha256() -> str:
+    try:
+        content = Path(__file__).read_text(encoding="utf-8", errors="ignore")
+    except Exception:
+        return ""
+    return hash_text(content)
+
+
 def detect_project_type(project_dir: Path) -> str:
     manifest_candidates = [
         "package.json",
+        "composer.json",
+        "Package.swift",
         "pyproject.toml",
         "requirements.txt",
         "go.mod",
@@ -98,7 +801,8 @@ def detect_project_type(project_dir: Path) -> str:
     has_manifest = any((project_dir / name).exists() for name in manifest_candidates)
     has_source = any((project_dir / d).exists() for d in ["src", "app", "services", "backend", "frontend"])
     has_docs = any(project_dir.glob("*.md"))
-    return "existing" if (has_manifest or has_source or has_docs) else "new"
+    has_xcodeproj = any(project_dir.glob("*.xcodeproj")) or any(project_dir.glob("*.xcworkspace"))
+    return "existing" if (has_manifest or has_source or has_docs or has_xcodeproj) else "new"
 
 
 def read_json_file(path: Path) -> dict:
@@ -164,17 +868,41 @@ def detect_stack(project_dir: Path) -> dict:
 
         framework_map = {
             "react": "React",
+            "react-native": "React Native",
             "next": "Next.js",
             "vue": "Vue",
             "nuxt": "Nuxt",
             "svelte": "Svelte",
-            "angular": "Angular",
+            "@angular/core": "Angular",
             "express": "Express",
+            "@nestjs/core": "NestJS",
             "nestjs": "NestJS",
             "fastify": "Fastify",
+            "hono": "Hono",
+            "astro": "Astro",
+            "@remix-run/react": "Remix",
         }
         for dep_name, fw in framework_map.items():
             if dep_name in all_deps:
+                frameworks.add(fw)
+
+    composer_json = project_dir / "composer.json"
+    if composer_json.exists():
+        languages.add("PHP")
+        package_managers.add("composer")
+        data = read_json_file(composer_json)
+        req = data.get("require", {})
+        req_dev = data.get("require-dev", {})
+        all_php = {**req, **req_dev}
+        packages.update(all_php.keys())
+
+        php_framework_map = {
+            "laravel/framework": "Laravel",
+            "laravel/lumen-framework": "Lumen",
+            "symfony/symfony": "Symfony",
+        }
+        for dep_name, fw in php_framework_map.items():
+            if dep_name in all_php:
                 frameworks.add(fw)
 
     pyproject = project_dir / "pyproject.toml"
@@ -218,6 +946,27 @@ def detect_stack(project_dir: Path) -> dict:
         languages.add("Ruby")
         package_managers.add("bundler")
 
+    package_swift = project_dir / "Package.swift"
+    if package_swift.exists():
+        languages.add("Swift")
+        package_managers.add("SwiftPM")
+        try:
+            swift_text = package_swift.read_text(encoding="utf-8", errors="ignore").lower()
+        except Exception:
+            swift_text = ""
+
+        if "vapor" in swift_text:
+            frameworks.add("Vapor")
+        if "swiftui" in swift_text:
+            frameworks.add("SwiftUI")
+
+    has_xcodeproj = any(project_dir.glob("*.xcodeproj")) or any(project_dir.glob("*.xcworkspace"))
+    if has_xcodeproj:
+        languages.add("Swift")
+        package_managers.add("Xcode")
+        if not frameworks:
+            frameworks.add("SwiftUI")
+
     return {
         "languages": sorted(languages),
         "frameworks": sorted(frameworks),
@@ -228,7 +977,13 @@ def detect_stack(project_dir: Path) -> dict:
 
 
 def gather_existing_markdown_context(project_dir: Path, max_files: int = 20) -> list[dict]:
-    generated_roots = ('AGENTS.md', 'AI_DOCS_INDEX.md', 'CLAUDE.md', 'CODEX.md', 'ANTIGRAVITY.md')
+    generated_roots = (
+        "AGENTS.md",
+        "AI_DOCS_INDEX.md",
+        "CLAUDE.md",
+        "CODEX.md",
+        "ANTIGRAVITY.md",
+    )
     docs = []
     for md_file in sorted(project_dir.rglob("*.md")):
         rel = md_file.relative_to(project_dir).as_posix()
@@ -265,12 +1020,222 @@ def merge_unique(existing: list[str], incoming: list[str]) -> list[str]:
     return merged
 
 
+def slugify_intent_key(value: str) -> str:
+    key = re.sub(r"[^a-z0-9]+", "-", (value or "").strip().lower()).strip("-")
+    return key or "general-app"
+
+
+def parse_compliance_input(raw: str) -> list[str]:
+    if not raw.strip():
+        return []
+
+    items = []
+    for part in raw.split(","):
+        key = slugify_intent_key(part)
+        mapped = COMPLIANCE_ALIASES.get(key)
+        if mapped:
+            items.append(mapped)
+    return merge_unique([], items)
+
+
+def resolve_compliance_packs(app_intent_input: str, selected_keys: list[str] | None = None) -> list[dict]:
+    selected = merge_unique([], selected_keys or [])
+    low = (app_intent_input or "").lower()
+
+    for pack_key, pack in COMPLIANCE_PACKS.items():
+        trigger_words = pack.get("trigger_keywords", [])
+        if any(word in low for word in trigger_words):
+            selected = merge_unique(selected, [pack_key])
+
+    resolved = []
+    for key in selected:
+        pack = COMPLIANCE_PACKS.get(key)
+        if not pack:
+            continue
+        resolved.append({
+            "key": key,
+            "name": pack.get("name", key.upper()),
+            "checks": pack.get("checks", []),
+        })
+
+    return resolved
+
+
+def resolve_package_guidance(stack: dict) -> dict:
+    frameworks = stack.get("frameworks", []) or []
+    package_managers = stack.get("package_managers", []) or []
+
+    recommended = []
+    avoid = []
+    matched_profiles = []
+
+    for framework in frameworks:
+        profile = PACKAGE_GUIDANCE.get(framework)
+        if not profile:
+            continue
+        matched_profiles.append(framework)
+        recommended = merge_unique(recommended, profile.get("recommended", []))
+        avoid = merge_unique(avoid, profile.get("avoid", []))
+
+    # Language-level fallbacks when no framework profile matched.
+    languages = {item.lower() for item in (stack.get("languages", []) or [])}
+    if not matched_profiles:
+        if "python" in languages:
+            recommended = merge_unique(recommended, ["ruff", "mypy", "pytest", "pip-audit"])
+            avoid = merge_unique(avoid, ["unmaintained python deps without recent releases"])
+        if "typescript" in languages or "javascript" in languages:
+            recommended = merge_unique(recommended, ["zod", "eslint", "prettier", "vitest"])
+            avoid = merge_unique(avoid, ["request -> use native fetch/undici", "moment -> prefer date-fns/dayjs"])
+        if "php" in languages:
+            recommended = merge_unique(recommended, ["phpstan/larastan", "php-cs-fixer"])
+            avoid = merge_unique(avoid, ["abandoned composer packages"])
+
+    audit_commands = []
+    for pm in package_managers:
+        audit_commands = merge_unique(audit_commands, SECURITY_AUDIT_COMMANDS.get(pm, []))
+
+    if not audit_commands:
+        audit_commands = ["Run ecosystem-specific vulnerability scanning before introducing new dependencies."]
+
+    return {
+        "matched_profiles": matched_profiles,
+        "recommended_packages": recommended,
+        "avoid_packages": avoid,
+        "audit_commands": audit_commands,
+    }
+
+
+def compute_framework_intent_bonus(stack: dict | None) -> dict[str, int]:
+    bonuses = {}
+    if not stack:
+        return bonuses
+
+    for framework in (stack.get("frameworks", []) or []):
+        hint = FRAMEWORK_INTENT_HINTS.get(framework, {})
+        for label, value in hint.items():
+            bonuses[label] = bonuses.get(label, 0) + int(value)
+    return bonuses
+
+
+def keyword_confidence_score(raw: str, keyword: str) -> tuple[int, bool]:
+    text = raw.lower()
+    k = keyword.lower()
+    if not k:
+        return 0, False
+
+    # Prefer explicit phrase or whole-word hits over loose substring matches.
+    whole_word = re.search(rf"\b{re.escape(k)}\b", text) is not None
+    if whole_word:
+        return 3, True
+    if k in text:
+        return 1, True
+    return 0, False
+
+
+def resolve_app_blueprint(app_intent_input: str | None, stack: dict | None = None) -> tuple[str, str, dict]:
+    raw = (app_intent_input or "").strip()
+    if not raw:
+        raw = "general-app"
+
+    key = slugify_intent_key(raw)
+    known = APP_ARCHETYPES.get(key)
+    framework_bonus = compute_framework_intent_bonus(stack)
+    if known:
+        known_blueprint = dict(known)
+        label = known.get("label", key)
+        known_blueprint["intent_ranking"] = [{
+            "label": label,
+            "score": 100 + framework_bonus.get(label, 0),
+            "base_score": 100,
+            "framework_bonus": framework_bonus.get(label, 0),
+            "matched_keywords": [key],
+        }]
+        return key, raw, known_blueprint
+
+    base = APP_ARCHETYPES["general-app"]
+    capabilities = list(base.get("capabilities", []))
+    suggestions = list(base.get("suggestions", []))
+    label = raw.title()
+    matched = False
+    ranked_matches = []
+    low = raw.lower()
+
+    for keywords, blueprint in INTENT_KEYWORD_BLUEPRINTS:
+        hit_keywords = []
+        score = 0
+        for word in keywords:
+            points, matched = keyword_confidence_score(low, word)
+            if matched:
+                hit_keywords.append(word)
+                score += points
+        if score > 0:
+            matched = True
+            resolved_label = blueprint.get("label", "Custom Profile")
+            bonus = framework_bonus.get(resolved_label, 0)
+            ranked_matches.append({
+                "label": resolved_label,
+                "score": score + bonus,
+                "base_score": score,
+                "framework_bonus": bonus,
+                "matched_keywords": hit_keywords,
+            })
+            capabilities = merge_unique(capabilities, blueprint.get("capabilities", []))
+            suggestions = merge_unique(suggestions, blueprint.get("suggestions", []))
+
+    if ranked_matches:
+        ranked_matches = sorted(
+            ranked_matches,
+            key=lambda item: (
+                -item["score"],
+                -item.get("framework_bonus", 0),
+                -len(item.get("matched_keywords", [])),
+                item["label"].lower(),
+            ),
+        )
+        unique_labels = []
+        seen = set()
+        for item in ranked_matches:
+            label_key = item["label"].lower().strip()
+            if not label_key or label_key in seen:
+                continue
+            seen.add(label_key)
+            unique_labels.append(item["label"])
+        label = " + ".join(unique_labels)
+
+    if matched:
+        description = f"Custom app intent '{raw}' matched known patterns and merged targeted guidance."
+    else:
+        description = f"Custom app intent '{raw}' with generalized engineering defaults."
+
+    custom = {
+        "label": label,
+        "description": description,
+        "capabilities": capabilities,
+        "suggestions": suggestions,
+        "intent_ranking": ranked_matches,
+    }
+    return key, raw, custom
+
+
 def ask_new_project_details() -> dict:
     print("\nDetected a NEW project. Please provide setup details.")
-    print("Available stack presets: react-ts, next-ts, node-api, fastapi")
+    print("Available stack presets: " + ", ".join(sorted(STACK_PRESETS.keys())))
+    print("Starter app intents: " + ", ".join(sorted(APP_ARCHETYPES.keys())))
+    print(
+        "You can enter any custom app intent (examples: analytics, crash-logger, social-app, ewallet, chat-app, ride-booking, ecommerce, scraper, gaming, travel, legal-tech, gov-tech, ad-tech)."
+    )
+    print("Intent ranking is automatic when multiple domains are present (e.g. ride-booking ecommerce).")
 
     os_value = input("Target OS (macos/linux/windows, default auto): ").strip().lower() or "auto"
     preset = input("Stack preset (optional, press Enter to skip): ").strip().lower()
+    app_intent_input = (
+        input(
+            "App intent (any value, e.g. general-app/chatbot/crm/analytics/crash-logger/social/ewallet/chat-app/ride-booking/ecommerce/scraper/gaming/travel/legal-tech/gov-tech/ad-tech; default general-app): "
+        )
+        .strip()
+        .lower()
+        or "general-app"
+    )
     agents_raw = input(
         "Agents (comma separated, default: cursor,github-copilot,claude-code,openai-codex,antigravity): "
     ).strip()
@@ -278,6 +1243,7 @@ def ask_new_project_details() -> dict:
     fw_raw = input("Frameworks (comma separated, e.g. React,FastAPI): ").strip()
     test_raw = input("Testing tools (comma separated, e.g. vitest,pytest): ").strip()
     lint_raw = input("Lint/format tools (comma separated, e.g. eslint,prettier,ruff): ").strip()
+    compliance_raw = input("Compliance packs (optional comma separated: pci-dss,hipaa,soc2,gdpr,ccpa,iso27001): ").strip()
 
     agents = [a.strip() for a in agents_raw.split(",") if a.strip()] if agents_raw else list(DEFAULT_AGENTS)
     languages = [l.strip() for l in lang_raw.split(",") if l.strip()]
@@ -294,8 +1260,16 @@ def ask_new_project_details() -> dict:
     tests = merge_unique(preset_data.get("tests", []), tests)
     linting = merge_unique(preset_data.get("linting", []), linting)
 
+    stack_hint = {"frameworks": frameworks, "languages": languages}
+    app_intent, app_intent_display, app_data = resolve_app_blueprint(app_intent_input, stack_hint)
+    selected_compliance = parse_compliance_input(compliance_raw)
+    compliance_packs = resolve_compliance_packs(app_intent_display, selected_compliance)
+
     suggestions = []
     suggestions.extend(preset_data.get("suggestions", []))
+    suggestions.extend(app_data.get("suggestions", []))
+    for pack in compliance_packs:
+        suggestions.append(f"Compliance focus ({pack['name']}): {', '.join(pack.get('checks', [])[:2])}")
     lset = {x.lower() for x in languages}
     fset = {x.lower() for x in frameworks}
 
@@ -306,17 +1280,69 @@ def ask_new_project_details() -> dict:
         suggestions.append("Use ruff + mypy + pytest with pre-commit hooks.")
     if "fastapi" in fset:
         suggestions.append("Add pydantic validation and contract tests for API schemas.")
+    if app_intent == "chatbot":
+        suggestions.append("Track conversation quality metrics (groundedness, relevance, safety).")
+        if "react" in fset or "next.js" in fset:
+            suggestions.append("Design a streaming chat UI with retry/fallback and transcript persistence.")
+        if "express" in fset or "nestjs" in fset or "fastify" in fset:
+            suggestions.append("Isolate model provider adapters behind interfaces for easy vendor switching.")
+        if "laravel" in fset:
+            suggestions.append("Use queued jobs for async model/retrieval calls and persist session context.")
+        if "python" in lset or "fastapi" in fset or "django" in fset:
+            suggestions.append("Protect model endpoints with per-tenant quotas and structured prompt telemetry.")
+    if app_intent == "crm":
+        suggestions.append("Define account/contact/opportunity schemas and lifecycle transitions explicitly.")
+        suggestions.append("Require permission checks and audit trails on every write path.")
+
+    suggestions = merge_unique([], suggestions)
 
     return {
         "target_os": os_value,
         "preset": preset,
+        "app_intent": app_intent,
+        "app_intent_input": app_intent_display,
         "agents": agents,
         "languages": languages,
         "frameworks": frameworks,
         "tests": tests,
         "linting": linting,
+        "compliance_keys": [pack["key"] for pack in compliance_packs],
         "suggestions": suggestions,
     }
+
+
+def print_catalogs(show_stack_presets: bool, show_intents: bool, show_compliance: bool) -> None:
+    if show_stack_presets:
+        print("\nAvailable stack presets:")
+        for key in sorted(STACK_PRESETS.keys()):
+            preset = STACK_PRESETS.get(key, {})
+            langs = ", ".join(preset.get("languages", [])) or "n/a"
+            fws = ", ".join(preset.get("frameworks", [])) or "n/a"
+            print(f"- {key} (languages: {langs}; frameworks: {fws})")
+
+    if show_intents:
+        print("\nStarter intents:")
+        for key in sorted(APP_ARCHETYPES.keys()):
+            print(f"- {key}")
+
+        print("\nIntent profiles matched by keywords:")
+        labels = []
+        for _, blueprint in INTENT_KEYWORD_BLUEPRINTS:
+            label = blueprint.get("label")
+            if label:
+                labels.append(label)
+        for label in sorted(set(labels)):
+            print(f"- {label}")
+
+    if show_compliance:
+        print("\nCompliance packs:")
+        for key in sorted(COMPLIANCE_PACKS.keys()):
+            pack = COMPLIANCE_PACKS[key]
+            name = pack.get("name", key.upper())
+            print(f"- {key} ({name})")
+
+    if not any([show_stack_presets, show_intents, show_compliance]):
+        print("No catalog flag selected.")
 
 
 def ensure_dir(path: Path) -> None:
@@ -365,7 +1391,15 @@ def detect_scope_changes(previous: dict, ctx: dict) -> tuple[bool, bool, bool]:
 
     agents_changed = list_signature(previous.get("agents")) != list_signature(ctx.get("agents"))
     prompt_changed = previous.get("master_prompt_sha256") != hash_text(MASTER_PROMPT)
-    return stack_changed, agents_changed, prompt_changed
+    script_changed = previous.get("script_sha256") != current_script_sha256()
+    old_intent = (previous.get("app_intent") or "").strip().lower()
+    new_intent = (ctx.get("app_intent") or "").strip().lower()
+
+    old_compliance = sorted(previous.get("compliance_keys", []) or [])
+    new_compliance = sorted([pack.get("key") for pack in (ctx.get("compliance_packs", []) or []) if pack.get("key")])
+
+    profile_changed = (old_intent != new_intent) or (old_compliance != new_compliance)
+    return stack_changed, agents_changed, (prompt_changed or profile_changed or script_changed)
 
 
 def determine_impacted_files(
@@ -406,10 +1440,20 @@ def is_managed_generated_file(path: str) -> bool:
         "ANTIGRAVITY.md",
         ".cursor/rules/project.mdc",
         ".github/copilot-instructions.md",
+        ".specs/README.md",
+        ".specs/memory.md",
+        ".specs/features/core/spec.md",
+        ".specs/features/core/memory.md",
+        ".specs/features/template/spec-template.md",
+        ".ai-docs/TOKEN-EFFICIENCY.md",
+        ".ai-docs/MEMORY-MANAGEMENT.md",
+        ".ai-docs/CODE-GENERATION-STANDARDS.md",
     }
     if path in managed_roots:
         return True
     if path.startswith(".ai-docs/"):
+        return True
+    if path.startswith(".specs/features/"):
         return True
     return False
 
@@ -480,14 +1524,27 @@ def resolve_generated_at(project_dir: Path, check_mode: bool) -> str:
 def build_common_context(project_type: str, stack: dict, new_details: dict | None, generated_at: str) -> dict:
     agents = list(DEFAULT_AGENTS)
     target_os = GENERATOR_TARGET_OS if GENERATOR_TARGET_OS != "auto" else "auto"
+    app_intent_input = "general-app"
+    compliance_keys = []
 
     if new_details:
         agents = new_details.get("agents") or agents
         target_os = new_details.get("target_os") or target_os
+        app_intent_input = new_details.get("app_intent_input") or new_details.get("app_intent") or app_intent_input
+        compliance_keys = new_details.get("compliance_keys") or []
+
+    app_intent, app_intent_display, app_blueprint = resolve_app_blueprint(app_intent_input, stack)
+    compliance_packs = resolve_compliance_packs(app_intent_display, compliance_keys)
+    package_guidance = resolve_package_guidance(stack)
 
     return {
         "project_type": project_type,
         "target_os": target_os,
+        "app_intent": app_intent,
+        "app_intent_input": app_intent_display,
+        "app_blueprint": app_blueprint,
+        "compliance_packs": compliance_packs,
+        "package_guidance": package_guidance,
         "agents": agents,
         "stack": stack,
         "new_details": new_details or {},
@@ -499,6 +1556,9 @@ def generate_agents_md(ctx: dict) -> str:
     stack = ctx["stack"]
     langs = ", ".join(stack.get("languages") or ["TBD"])
     fws = ", ".join(stack.get("frameworks") or ["TBD"])
+    app_label = ctx.get("app_blueprint", {}).get("label", "General App")
+    app_desc = ctx.get("app_blueprint", {}).get("description", "Balanced defaults for software delivery.")
+    app_input = ctx.get("app_intent_input", ctx.get("app_intent", "general-app"))
 
     return f"""# AGENTS.md
 
@@ -510,8 +1570,12 @@ Canonical cross-agent guidance for AI-assisted development in this repository.
 ## Project Context
 - Project type: {ctx['project_type']}
 - Target OS: {ctx['target_os']}
+- App intent: {app_input} (profile: {ctx['app_intent']} / {app_label})
 - Languages: {langs}
 - Frameworks: {fws}
+
+## Product Intent
+{app_desc}
 
 ## Core Engineering Rules
 1. Preserve existing architecture and coding style unless change is requested.
@@ -545,6 +1609,92 @@ Use docs as executable intent:
 ## Update Policy
 - Refresh docs when stack/tooling changes.
 - Record updates in .ai-docs/CHANGELOG.md.
+"""
+
+
+def generate_app_blueprint_md(ctx: dict) -> str:
+    blueprint = ctx.get("app_blueprint", {})
+    capabilities = blueprint.get("capabilities", [])
+    suggestions = blueprint.get("suggestions", [])
+    compliance_packs = ctx.get("compliance_packs", [])
+    package_guidance = ctx.get("package_guidance", {})
+    intent_ranking = blueprint.get("intent_ranking", [])
+
+    capabilities_lines = "\n".join(f"- {item}" for item in capabilities) if capabilities else "- No capabilities defined"
+    suggestions_lines = "\n".join(f"- {item}" for item in suggestions) if suggestions else "- No suggestions defined"
+
+    if compliance_packs:
+        compliance_lines = []
+        for pack in compliance_packs:
+            compliance_lines.append(f"- {pack.get('name', pack.get('key', 'Unknown'))} ({pack.get('key', 'n/a')})")
+            for check in pack.get("checks", []):
+                compliance_lines.append(f"  - {check}")
+        compliance_text = "\n".join(compliance_lines)
+    else:
+        compliance_text = "- No specific compliance pack selected or auto-detected."
+
+    if intent_ranking:
+        ranking_lines = []
+        for row in intent_ranking:
+            keywords = ", ".join(row.get("matched_keywords", [])) or "n/a"
+            base_score = row.get("base_score", row.get("score", 0))
+            framework_bonus = row.get("framework_bonus", 0)
+            ranking_lines.append(
+                f"- {row.get('label', 'Unknown')}: score={row.get('score', 0)} (base={base_score}, framework_bonus={framework_bonus}, matched: {keywords})"
+            )
+        ranking_text = "\n".join(ranking_lines)
+    else:
+        ranking_text = "- No ranked intent matches; using default/general profile."
+
+    recommended_packages = package_guidance.get("recommended_packages", [])
+    avoid_packages = package_guidance.get("avoid_packages", [])
+    audit_commands = package_guidance.get("audit_commands", [])
+
+    recommended_text = "\n".join(f"- {item}" for item in recommended_packages) if recommended_packages else "- No package recommendations available."
+    avoid_text = "\n".join(f"- {item}" for item in avoid_packages) if avoid_packages else "- No stale package warnings available."
+    audit_text = "\n".join(f"- `{item}`" for item in audit_commands) if audit_commands else "- No audit command recommendations available."
+
+    return f"""# Application Blueprint
+
+Last updated: {ctx['generated_at']}
+
+## Selected Intent
+- Key: {ctx.get('app_intent', 'general-app')}
+- Input: {ctx.get('app_intent_input', ctx.get('app_intent', 'general-app'))}
+- Label: {blueprint.get('label', 'General App')}
+- Description: {blueprint.get('description', 'Balanced defaults for software delivery.')}
+
+## Intent Ranking
+{ranking_text}
+
+## Capability Checklist
+{capabilities_lines}
+
+## Delivery Suggestions
+{suggestions_lines}
+
+## Compliance Packs
+{compliance_text}
+
+## Package Recommendations (Current Standard)
+{recommended_text}
+
+## Avoid Stale Packages
+{avoid_text}
+
+## Security Audit Before Install
+1. Run vulnerability and advisory checks before adding new dependencies.
+2. Prefer actively maintained libraries with regular releases and security response history.
+3. Block install/merge when high or critical issues are unresolved.
+
+Suggested commands:
+{audit_text}
+
+## Stack-Specific Notes
+- React/Next: prioritize typed API clients, optimistic UI boundaries, and role-aware routes.
+- Node/Nest/Fastify: isolate domain services from transport; enforce request/schema validation.
+- Laravel: use policies, form requests, queues, and database transactions for critical flows.
+- Python (FastAPI/Django): validate contracts with pydantic/dataclasses and secure async/background tasks.
 """
 
 
@@ -693,9 +1843,13 @@ def write_metadata(project_dir: Path, ctx: dict, generated_files: list[str]) -> 
         "generated_at": ctx["generated_at"],
         "target_os": ctx["target_os"],
         "project_type": ctx["project_type"],
+        "app_intent": ctx.get("app_intent"),
+        "app_intent_input": ctx.get("app_intent_input"),
+        "compliance_keys": [pack.get("key") for pack in (ctx.get("compliance_packs", []) or []) if pack.get("key")],
         "agents": ctx["agents"],
         "stack": ctx["stack"],
         "master_prompt_sha256": hash_text(MASTER_PROMPT),
+        "script_sha256": current_script_sha256(),
         "generated_files": generated_files,
     }
     metadata_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -728,6 +1882,16 @@ def compute_stale_reasons(project_dir: Path, ctx: dict) -> list[str]:
     if old_agents != new_agents:
         reasons.append(f"Enabled agents changed: {old_agents} -> {new_agents}")
 
+    old_intent = (old_meta.get("app_intent") or "").strip().lower()
+    new_intent = (ctx.get("app_intent") or "").strip().lower()
+    if old_intent != new_intent:
+        reasons.append(f"App intent changed: {old_intent} -> {new_intent}")
+
+    old_compliance = sorted(old_meta.get("compliance_keys", []) or [])
+    new_compliance = sorted([pack.get("key") for pack in (ctx.get("compliance_packs", []) or []) if pack.get("key")])
+    if old_compliance != new_compliance:
+        reasons.append(f"Compliance packs changed: {old_compliance} -> {new_compliance}")
+
     if not reasons:
         reasons.append("Generated content drift detected from templates or user-managed sections.")
 
@@ -758,12 +1922,114 @@ def write_check_report(report_path: Path, changed_files: list[str], reasons: lis
     report_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
+def sanitize_feature_name(name: str) -> str:
+    cleaned = re.sub(r"[^a-z0-9_-]+", "-", name.lower()).strip("-_")
+    return cleaned or "feature"
+
+
+def detect_feature_names(project_dir: Path, max_features: int = 8) -> list[str]:
+    roots = ["src", "app", "services", "backend", "frontend"]
+    ignore = {
+        "node_modules",
+        "dist",
+        "build",
+        "__pycache__",
+        "tests",
+        "test",
+        ".git",
+        ".ai-docs",
+        ".specs",
+        ".github",
+        ".cursor",
+    }
+
+    candidates = []
+    for root_name in roots:
+        root = project_dir / root_name
+        if not root.exists() or not root.is_dir():
+            continue
+
+        for child in sorted(root.iterdir()):
+            name = child.name
+            if name.startswith(".") or name.lower() in ignore:
+                continue
+            if child.is_dir():
+                candidates.append(name)
+                continue
+            if child.is_file() and "." in name:
+                stem = name.rsplit(".", 1)[0]
+                if stem and stem.lower() not in ignore:
+                    candidates.append(stem)
+
+    unique = []
+    seen = set()
+    for name in candidates:
+        feature = sanitize_feature_name(name)
+        if feature in seen or feature in {"core", "template"}:
+            continue
+        seen.add(feature)
+        unique.append(feature)
+        if len(unique) >= max_features:
+            break
+
+    return unique
+
+
+def build_feature_spec_files(feature_names: list[str]) -> tuple[dict[str, str], str]:
+    files = {}
+    index_lines = [
+        "# Specs Memory Index",
+        "",
+        "Track feature specs and where their memory files live.",
+        "",
+        "## Index",
+        "- core: .specs/features/core/spec.md",
+        "- core-memory: .specs/features/core/memory.md",
+    ]
+
+    for feature in feature_names:
+        spec_path = f".specs/features/{feature}/spec.md"
+        memory_path = f".specs/features/{feature}/memory.md"
+
+        files[spec_path] = f"""# Feature Spec: {feature}
+
+## Goal
+Define expected behavior for {feature}.
+
+## Acceptance Criteria
+1. Core behavior for {feature} is defined.
+2. Tests can map to acceptance criteria.
+3. Security/performance constraints are explicit.
+
+## Test Mapping
+- AC1 -> unit/integration tests for {feature}
+- AC2 -> acceptance test coverage for {feature}
+- AC3 -> security/performance checks
+"""
+
+        files[memory_path] = f"""# Feature Memory: {feature}
+
+## Decisions
+- <record key implementation and design decisions>
+
+## Open Questions
+- <record unresolved questions and follow-ups>
+"""
+
+        index_lines.append(f"- {feature}: {spec_path}")
+        index_lines.append(f"- {feature}-memory: {memory_path}")
+
+    index_content = "\n".join(index_lines).rstrip() + "\n"
+    return files, index_content
+
+
 def generate_files(project_dir: Path, ctx: dict, markdown_context: list[dict], check_mode: bool = False) -> tuple[list[str], list[str]]:
     generated = []
     changed_files = []
 
     common_files = {
         "AGENTS.md": generate_agents_md(ctx),
+        ".ai-docs/APP-BLUEPRINT.md": generate_app_blueprint_md(ctx),
         ".ai-docs/CONTEXT-SNAPSHOT.md": generate_context_snapshot(ctx, markdown_context),
         ".ai-docs/FEEDBACK.md": """# Feedback Loop
 
@@ -801,7 +2067,126 @@ Use this file to propose improvements to generated AI docs.
 4. Update docs and traceability notes.
 """,
         ".ai-docs/MASTER_PROMPT_REFERENCE.md": MASTER_PROMPT,
+        ".ai-docs/TOKEN-EFFICIENCY.md": """# Token Efficiency Guide
+
+    ## Objectives
+    - Minimize token usage while keeping high-signal context.
+    - Keep generation deterministic and focused.
+
+    ## Rules
+    1. Read manifests and key docs first, then expand only if needed.
+    2. Prefer summaries over full-file dumps for large files.
+    3. Centralize shared rules in AGENTS.md and link from agent-specific docs.
+    4. Avoid duplicate instructions across files.
+
+    ## Prompt Compression Pattern
+    - Context snapshot
+    - Constraints
+    - Acceptance criteria
+    - Minimal examples
+    """,
+        ".ai-docs/MEMORY-MANAGEMENT.md": """# Memory Management Guide
+
+    ## Purpose
+    Define how project memory is captured and maintained for durable agent behavior.
+
+    ## Memory Layers
+    - Global/canonical: AGENTS.md and AI_DOCS_INDEX.md
+    - Project operational memory: .ai-docs/*.md
+    - Feature memory: .specs/features/<feature>/memory.md
+
+    ## Operating Rules
+    1. Keep memory files concise and decision-focused.
+    2. Record assumptions, decisions, and unresolved questions.
+    3. Update feature memory whenever feature specs or behavior changes.
+    4. Archive stale decisions rather than deleting rationale.
+    """,
+        ".ai-docs/CODE-GENERATION-STANDARDS.md": """# Code Generation Standards
+
+    ## Quality
+    - Prefer readable, modular, and testable code.
+    - Keep diffs small and behavior-focused.
+    - Add or update tests for behavior changes.
+
+    ## Security
+    - Validate untrusted input at boundaries.
+    - Avoid secrets in source, docs, and logs.
+    - Use least-privilege defaults and explicit error handling.
+
+    ## Performance
+    - Avoid unnecessary allocations and repeated scans.
+    - Profile critical paths before optimizing.
+    - Document known tradeoffs and complexity hotspots.
+
+    ## Definition of Done
+    - Build/lint/tests pass.
+    - Security checks are satisfied.
+    - Relevant docs/specs/memory are updated.
+    """,
+        ".specs/README.md": """# Specs Workspace
+
+    This folder stores spec-driven development artifacts.
+
+    ## Structure
+    - .specs/features/<feature>/spec.md
+    - .specs/features/<feature>/memory.md
+
+    ## Workflow
+    1. Create or update feature spec before implementation.
+    2. Maintain feature memory with decisions and open questions.
+    3. Map acceptance criteria to tests.
+    4. Keep specs in sync with shipped behavior.
+    """,
+        ".specs/features/core/spec.md": """# Feature Spec: Core
+
+    ## Goal
+    Define baseline project behavior and constraints.
+
+    ## Acceptance Criteria
+    1. Documentation generation runs successfully.
+    2. Generated docs are deterministic under --check mode.
+    3. Security and performance standards are enforced in guidance.
+
+    ## Test Mapping
+    - AC1 -> smoke generation run
+    - AC2 -> freshness check run
+    - AC3 -> doc content validation
+    """,
+        ".specs/features/core/memory.md": """# Feature Memory: Core
+
+    ## Decisions
+    - Keep check mode deterministic via metadata timestamp reuse.
+    - Preserve user custom blocks during regeneration.
+
+    ## Open Questions
+    - Should feature specs be auto-created from source folders?
+    - Should stale-spec detection be enforced in CI?
+    """,
+        ".specs/features/template/spec-template.md": """# Feature Spec Template
+
+    ## Goal
+    <what outcome this feature should deliver>
+
+    ## Non-Goals
+    <what is intentionally out of scope>
+
+    ## Acceptance Criteria
+    1. ...
+    2. ...
+
+    ## Test Mapping
+    - AC1 -> <test>
+    - AC2 -> <test>
+
+    ## Risks
+    - ...
+    """,
     }
+
+    feature_names = detect_feature_names(project_dir)
+    feature_files, specs_memory_index = build_feature_spec_files(feature_names)
+    common_files[".specs/memory.md"] = specs_memory_index
+    common_files.update(feature_files)
 
     agent_files = generate_agent_specific_docs(ctx)
     all_files = dict(common_files)
@@ -870,12 +2255,25 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--check", action="store_true", help="Check mode: do not write files, exit non-zero if docs are out of date.")
     parser.add_argument("--non-interactive", action="store_true", help="Use defaults for prompts in new-project mode.")
+    parser.add_argument("--intent", help="Optional app intent for new-project mode (useful for CI/non-interactive runs).")
+    parser.add_argument(
+        "--compliance",
+        help="Optional comma-separated compliance packs for new-project mode (e.g. pci-dss,soc2,gdpr).",
+    )
+    parser.add_argument("--list-stack-presets", action="store_true", help="Print available stack presets and exit.")
+    parser.add_argument("--list-intents", action="store_true", help="Print starter and keyword-mapped intent profiles and exit.")
+    parser.add_argument("--list-compliance", action="store_true", help="Print available compliance packs and exit.")
     parser.add_argument("--report-path", help="Optional path to write markdown report in --check mode.")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+
+    if args.list_stack_presets or args.list_intents or args.list_compliance:
+        print_catalogs(args.list_stack_presets, args.list_intents, args.list_compliance)
+        raise SystemExit(0)
+
     project_dir = Path(args.project).resolve()
     if not project_dir.exists() or not project_dir.is_dir():
         raise SystemExit(f"Project path does not exist or is not a directory: {project_dir}")
@@ -893,9 +2291,14 @@ def main() -> None:
 
     new_details = None
     if mode == "new":
-        if args.non_interactive:
+        if args.non_interactive or args.intent or args.compliance:
+            intent_input = (args.intent or "general-app").strip().lower()
+            compliance_keys = parse_compliance_input((args.compliance or "").strip())
             new_details = {
                 "target_os": GENERATOR_TARGET_OS if GENERATOR_TARGET_OS != "auto" else "auto",
+                "app_intent": slugify_intent_key(intent_input),
+                "app_intent_input": intent_input,
+                "compliance_keys": compliance_keys,
                 "agents": list(DEFAULT_AGENTS),
                 "languages": [],
                 "frameworks": [],

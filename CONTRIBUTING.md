@@ -32,6 +32,8 @@ make compile
 make smoke-check
 ```
 
+Note: smoke validation performs a stabilization generation pass before check mode so context snapshots are deterministic in fresh temp directories.
+
 4. If your change touches check/report behavior, run:
 
 ```bash
