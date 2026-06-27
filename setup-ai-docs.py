@@ -1740,6 +1740,18 @@ Suggested commands:
 - Node/Nest/Fastify: isolate domain services from transport; enforce request/schema validation.
 - Laravel: use policies, form requests, queues, and database transactions for critical flows.
 - Python (FastAPI/Django): validate contracts with pydantic/dataclasses and secure async/background tasks.
+
+## Kiro Patterns (Spec-Driven & Parallel Agents)
+This project supports Kiro-style workflows:
+- **Executable Specs**: Turn requirements into validated specifications (see `.ai-docs/EXECUTABLE-SPECS.md`)
+- **Code Validation**: Validate correctness beyond unit tests (see `.ai-docs/CODE-VALIDATION.md`)
+- **Parallel Agents**: Coordinate multiple agents with session-based learning (see `.ai-docs/PARALLEL-AGENTS.md`)
+
+Recommended approach:
+1. Define executable specs in `.specs/` folder with acceptance criteria and assertions.
+2. Implement code to satisfy assertions (faster than iterative fixing).
+3. Run validation suite to find bugs unit tests miss.
+4. Coordinate work across agents using shared specs and session memory.
 """
 
 
@@ -2023,9 +2035,19 @@ def detect_feature_names(project_dir: Path, max_features: int = 8) -> list[str]:
 def build_feature_spec_files(feature_names: list[str]) -> tuple[dict[str, str], str]:
     files = {{}}
     index_lines = [
+        "---",
+        "title: Specs Memory Index",
+        "type: specs-index",
+        "tags: [ai-docs, specs, knowledge-graph]",
+        "---",
+        "",
         "# Specs Memory Index",
         "",
         "Track feature specs and where their memory files live.",
+        "",
+        "## Related Links",
+        "- [[.specs/features/core/spec.md]]",
+        "- [[.specs/features/core/memory.md]]",
         "",
         "## Index",
         "- core: .specs/features/core/spec.md",
@@ -2036,7 +2058,16 @@ def build_feature_spec_files(feature_names: list[str]) -> tuple[dict[str, str], 
         spec_path = f".specs/features/{{feature}}/spec.md"
         memory_path = f".specs/features/{{feature}}/memory.md"
 
-        files[spec_path] = f"""# Feature Spec: {{feature}}
+        files[spec_path] = f"""---
+    title: Feature Spec {{feature}}
+    type: feature-spec
+    tags: [ai-docs, specs, knowledge-graph]
+    related:
+      - [[.specs/memory.md]]
+      - [[.specs/features/{{feature}}/memory.md]]
+    ---
+
+    # Feature Spec: {{feature}}
 
 ## Goal
 Define expected behavior for {{feature}}.
@@ -2050,15 +2081,32 @@ Define expected behavior for {{feature}}.
 - AC1 -> unit/integration tests for {{feature}}
 - AC2 -> acceptance test coverage for {{feature}}
 - AC3 -> security/performance checks
+
+## Linked Notes
+- [[.specs/memory.md]]
+- [[.specs/features/{{feature}}/memory.md]]
 """
 
-        files[memory_path] = f"""# Feature Memory: {{feature}}
+        files[memory_path] = f"""---
+title: Feature Memory {{feature}}
+type: feature-memory
+    tags: [ai-docs, memory, knowledge-graph]
+related:
+  - [[.specs/memory.md]]
+  - [[.specs/features/{{feature}}/spec.md]]
+---
+
+# Feature Memory: {{feature}}
 
 ## Decisions
 - <record key implementation and design decisions>
 
 ## Open Questions
 - <record unresolved questions and follow-ups>
+
+## Linked Notes
+- [[.specs/memory.md]]
+- [[.specs/features/{{feature}}/spec.md]]
 """
 
         index_lines.append(f"- {{feature}}: {{spec_path}}")
@@ -2168,6 +2216,148 @@ Use this file to propose improvements to generated AI docs.
     - Security checks are satisfied.
     - Relevant docs/specs/memory are updated.
     """,
+        ".ai-docs/EXECUTABLE-SPECS.md": """---
+title: Executable Specs Guide
+type: kiro-patterns
+tags: [ai-docs, specs, validation, kiro]
+---
+
+# Executable Specs
+
+Turn prompts into executable specifications that guide and validate implementation.
+
+## Pattern
+1. Start with a clear prompt or requirement.
+2. Extract acceptance criteria and define inputs/outputs.
+3. Write assertions that verify correctness (beyond unit tests).
+4. Implement minimal code to satisfy assertions.
+5. Use specs as living documentation.
+
+## Spec Structure
+```
+## Requirement
+<prompt or user story>
+
+## Inputs
+<expected input types and constraints>
+
+## Outputs
+<expected output types and constraints>
+
+## Acceptance Criteria
+1. ...
+2. ...
+
+## Assertions
+- Assertion 1: <validates behavior X>
+- Assertion 2: <validates behavior Y>
+
+## Test Cases
+- Case 1: input=..., expected_output=...
+- Case 2: input=..., expected_output=...
+```
+
+## Validation Rules
+- Every assertion must be tied to an acceptance criterion.
+- Assertions should catch bugs that unit tests miss (edge cases, invariants).
+- Specs should be executable or easily testable.
+""",
+        ".ai-docs/CODE-VALIDATION.md": """---
+title: Code Validation Strategy
+type: kiro-patterns
+tags: [ai-docs, validation, correctness, kiro]
+---
+
+# Code Validation
+
+Validate code correctness beyond unit tests.
+
+## Validation Levels
+1. **Unit Tests**: Individual function/method behavior.
+2. **Integration Tests**: Component interactions and workflows.
+3. **Property Tests**: Invariants that should always hold.
+4. **Specification Tests**: Assertions from executable specs.
+5. **Scenario Tests**: Real-world user workflows end-to-end.
+
+## Correctness Checks
+- Boundary conditions (empty inputs, max/min values).
+- Error handling and recovery paths.
+- State consistency across operations.
+- Concurrency and race conditions (if applicable).
+- Resource cleanup and memory leaks.
+
+## Spec-Driven Validation
+- Define what correctness means in executable specs.
+- Use specs to generate test cases automatically.
+- Track validation gaps in feature memory.
+- Iterate on specs when validation reveals issues.
+""",
+        ".ai-docs/PARALLEL-AGENTS.md": """---
+title: Parallel Agents & Session Learning
+type: kiro-patterns
+tags: [ai-docs, agents, learning, kiro]
+---
+
+# Parallel Agents & Session Learning
+
+Enable multiple agents to work in parallel and learn from every session.
+
+## Agent Coordination
+1. **Shared Specs**: All agents read from the same executable specs.
+2. **Work Partitioning**: Divide work by feature, module, or layer.
+3. **Async Checkpoint**: Agents save progress to shared memory at key points.
+4. **Conflict Resolution**: Use specs and acceptance criteria as the source of truth.
+
+## Session-Based Learning
+After each coding session, record:
+- What was attempted and why.
+- What succeeded and what failed.
+- Patterns that emerged (positive and negative).
+- Insights for future sessions.
+
+## Memory Structure
+```
+## Session Memory
+- Date & agents involved
+- Features/tasks attempted
+- Key decisions and trade-offs
+- Bugs found and root causes
+- Performance observations
+- Lessons for next session
+```
+
+## Continuous Improvement
+- Review session memory before starting new work.
+- Update specs based on validation failures.
+- Share learnings across agents via memory notes.
+- Track validation improvement over time.
+""",
+        ".ai-docs/KNOWLEDGE-VAULT.md": """---
+    title: Knowledge Vault Guide
+type: knowledge-map
+    tags: [ai-docs, knowledge-graph, memory, specs]
+---
+
+    # Knowledge Vault Guide
+
+    Use this project as a markdown-first knowledge vault.
+
+## Entry Points
+- [[AI_DOCS_INDEX.md]]
+- [[.ai-docs/APP-BLUEPRINT.md]]
+- [[.specs/memory.md]]
+
+## Conventions
+1. Keep YAML frontmatter in notes for type/tags.
+2. Prefer wiki links between related docs.
+3. Keep decisions in memory notes and acceptance criteria in spec notes.
+4. Update links when creating/renaming feature notes.
+
+## Recommended Views
+- Graph view filtered by tag `knowledge-graph`
+- Backlinks panel for feature notes
+- Search filters: `tag:specs`, `tag:memory`, `tag:ai-docs`
+""",
         ".specs/README.md": """# Specs Workspace
 
     This folder stores spec-driven development artifacts.
@@ -2181,8 +2371,22 @@ Use this file to propose improvements to generated AI docs.
     2. Maintain feature memory with decisions and open questions.
     3. Map acceptance criteria to tests.
     4. Keep specs in sync with shipped behavior.
+
+    ## Knowledge Graph Tips
+    - Keep links between `spec.md` and `memory.md` in each feature folder.
+    - Use wiki links from active tasks to feature specs.
+    - Use tags in frontmatter for filtering and graphing.
     """,
-        ".specs/features/core/spec.md": """# Feature Spec: Core
+        ".specs/features/core/spec.md": """---
+title: Feature Spec Core
+type: feature-spec
+tags: [ai-docs, specs, knowledge-graph]
+related:
+  - [[.specs/memory.md]]
+  - [[.specs/features/core/memory.md]]
+---
+
+# Feature Spec: Core
 
     ## Goal
     Define baseline project behavior and constraints.
@@ -2196,8 +2400,21 @@ Use this file to propose improvements to generated AI docs.
     - AC1 -> smoke generation run
     - AC2 -> freshness check run
     - AC3 -> doc content validation
+
+    ## Linked Notes
+    - [[.specs/memory.md]]
+    - [[.specs/features/core/memory.md]]
     """,
-        ".specs/features/core/memory.md": """# Feature Memory: Core
+        ".specs/features/core/memory.md": """---
+title: Feature Memory Core
+type: feature-memory
+    tags: [ai-docs, memory, knowledge-graph]
+related:
+  - [[.specs/memory.md]]
+  - [[.specs/features/core/spec.md]]
+---
+
+# Feature Memory: Core
 
     ## Decisions
     - Keep check mode deterministic via metadata timestamp reuse.
@@ -2206,6 +2423,10 @@ Use this file to propose improvements to generated AI docs.
     ## Open Questions
     - Should feature specs be auto-created from source folders?
     - Should stale-spec detection be enforced in CI?
+
+    ## Linked Notes
+    - [[.specs/memory.md]]
+    - [[.specs/features/core/spec.md]]
     """,
         ".specs/features/template/spec-template.md": """# Feature Spec Template
 

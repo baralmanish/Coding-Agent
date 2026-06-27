@@ -30,6 +30,9 @@ It supports:
 - Deterministic freshness checks for CI
 - Stale report output for review artifacts
 - User-custom section preservation across regenerations
+- Knowledge-graph-friendly specs/memory notes (frontmatter, wiki links, and vault map)
+- Kiro-style executable specs and validation patterns
+- Parallel agent coordination and session-based learning templates
 
 ## Requirements
 
