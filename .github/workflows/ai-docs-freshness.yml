@@ -32,6 +32,10 @@ jobs:
         run: |
           python3 -m unittest discover -s tests -p 'test_*.py'
 
+      - name: Run Feature Matrix Validation
+        run: |
+          python3 scripts/feature_matrix_ci.py --bootstrap ./ai-docs-bootstrap --summary-path .ci-artifacts/feature-matrix-summary.json
+
       - name: Sanity Check Non-Interactive Intent Mode
         run: |
           tmp_dir="$(mktemp -d)"
@@ -97,6 +101,7 @@ jobs:
             .ci-artifacts
             .ai-docs-check-report.md
             ai-docs-check.log
+            scripts/feature_matrix_ci.py
           if-no-files-found: ignore
 
       - name: Fail When Docs Are Stale

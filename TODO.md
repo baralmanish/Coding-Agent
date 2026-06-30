@@ -136,7 +136,7 @@
 
 ## Phase 8: Modular Features Follow-up
 
-- [ ] **Matrix test automation in CI**
+- [x] **Matrix test automation in CI**
   - Add a CI job to run feature selection matrix tests on every PR
   - Publish matrix summary as an artifact for troubleshooting
   - Fail CI on unsupported-feature validation regressions
