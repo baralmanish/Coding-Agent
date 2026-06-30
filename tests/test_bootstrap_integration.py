@@ -245,6 +245,51 @@ class BootstrapIntegrationTests(unittest.TestCase):
                 result["current_duration_ms"], result["baseline_duration_ms"]
             )
 
+    def test_feature_toggle_disables_compliance_dashboard_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project_dir = Path(tmp)
+            ctx = self._build_ctx(
+                project_dir,
+                target_os="linux",
+                compliance_keys=["pci-dss"],
+                compliance_level=3,
+            )
+            ctx["active_features"] = [
+                "base-docs",
+                "agent-docs",
+                "feature-specs",
+                "compliance-level-2",
+                "compliance-level-3",
+                "patch-proposals",
+                "ai-analysis",
+            ]
+
+            generated, _ = mod.generate_files(
+                project_dir, ctx, markdown_context=[], check_mode=False
+            )
+            generated_set = set(generated)
+            self.assertNotIn(".specs/compliance/dashboard/index.html", generated_set)
+
+    def test_feature_status_file_lists_active_features(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project_dir = Path(tmp)
+            ctx = self._build_ctx(
+                project_dir,
+                target_os="linux",
+                compliance_keys=[],
+                compliance_level=1,
+            )
+            ctx["active_features"] = ["base-docs", "feature-catalog"]
+
+            mod.generate_files(project_dir, ctx, markdown_context=[], check_mode=False)
+            feature_doc = (project_dir / ".ai-docs" / "FEATURES.md").read_text(
+                encoding="utf-8"
+            )
+
+            self.assertIn("Available Features", feature_doc)
+            self.assertIn("Active Features For This Run", feature_doc)
+            self.assertIn("- feature-catalog", feature_doc)
+
 
 if __name__ == "__main__":
     unittest.main()

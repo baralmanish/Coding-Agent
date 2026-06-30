@@ -174,7 +174,23 @@ Notes:
 ./ai-docs-bootstrap --list-stack-presets
 ./ai-docs-bootstrap --list-intents
 ./ai-docs-bootstrap --list-compliance
+./ai-docs-bootstrap --list-features
 ```
+
+### Modular feature selection
+
+Use only the capabilities you want for a run:
+
+```bash
+./ai-docs-bootstrap --project /path/to/project --mode existing \
+   --features "base-docs,agent-docs,feature-specs" \
+   --enable-features "feature-catalog" \
+   --disable-features "compliance-dashboard"
+```
+
+Generated feature visibility file:
+
+- `.ai-docs/FEATURES.md` (available options + active/inactive features)
 
 ## Stack Presets
 

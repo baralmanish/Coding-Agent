@@ -315,14 +315,7 @@ def _prepare_embedded_sources() -> tuple[str, str]:
     compliance_functions_code = ""
     if compliance_code.exists():
         comp_content = compliance_code.read_text(encoding="utf-8")
-        lines = comp_content.split("\n")
-        func_start = None
-        for i, line in enumerate(lines):
-            if line.startswith("def _localization_tokens"):
-                func_start = i
-                break
-        if func_start is not None:
-            compliance_functions_code = "\n".join(lines[func_start:])
+        compliance_functions_code = comp_content
 
     gen_functions_code += "\n\n" + compliance_functions_code
 
@@ -422,6 +415,99 @@ DEFAULT_AGENTS = [
 MAX_CUSTOM_CONFIG_BYTES = 262144
 MAX_CUSTOM_ITEMS = 50
 MAX_CUSTOM_TEXT_LENGTH = 4000
+
+FEATURE_CATALOG = {{
+    "base-docs": "Core shared AI docs under .ai-docs and top-level indexes",
+    "agent-docs": "Agent-specific guidance files (Copilot, Claude, Codex, etc.)",
+    "feature-specs": "Spec/memory scaffolding under .specs/features",
+    "custom-agent-config": "Custom framework/compliance/template summary docs",
+    "compliance-level-2": "Level 2 compliance scanning files",
+    "compliance-level-3": "Level 3 compliance implementation pattern files",
+    "ai-analysis": "AI-assisted compliance analysis report",
+    "patch-proposals": "Level 3 patch proposal and injection reports",
+    "auto-patch-apply": "Apply deterministic auto-patches and emit result report",
+    "compliance-dashboard": "Compliance dashboard HTML output",
+    "feature-catalog": "Generated feature status file (available and active options)",
+}}
+
+
+def default_active_features() -> list[str]:
+    return [
+        "base-docs",
+        "agent-docs",
+        "feature-specs",
+        "custom-agent-config",
+        "compliance-level-2",
+        "compliance-level-3",
+        "ai-analysis",
+        "patch-proposals",
+        "compliance-dashboard",
+        "feature-catalog",
+    ]
+
+
+def normalize_feature_keys(items: list[str]) -> list[str]:
+    out = []
+    for item in items or []:
+        key = slugify_intent_key(item)
+        if key in FEATURE_CATALOG and key not in out:
+            out.append(key)
+    return out
+
+
+def resolve_active_features(
+    explicit_features: list[str],
+    enable_features: list[str],
+    disable_features: list[str],
+    apply_auto_patches: bool,
+) -> tuple[list[str], list[str]]:
+    warnings = []
+
+    if explicit_features:
+        active = normalize_feature_keys(explicit_features)
+    else:
+        active = normalize_feature_keys(default_active_features())
+
+    for key in normalize_feature_keys(enable_features):
+        if key not in active:
+            active.append(key)
+
+    disable_set = set(normalize_feature_keys(disable_features))
+    active = [key for key in active if key not in disable_set]
+
+    known = set(FEATURE_CATALOG.keys())
+    provided = set(explicit_features or []) | set(enable_features or []) | set(disable_features or [])
+    for raw in sorted(provided):
+        norm = slugify_intent_key(raw)
+        if norm not in known:
+            warnings.append(f"Unknown feature option ignored: {{raw}}")
+
+    if apply_auto_patches and "auto-patch-apply" not in active:
+        active.append("auto-patch-apply")
+
+    return active, warnings
+
+
+def generate_feature_status_md(active_features: list[str]) -> str:
+    available_lines = [f"- {{name}}: {{desc}}" for name, desc in FEATURE_CATALOG.items()]
+    active_lines = [f"- {{name}}" for name in active_features] or ["- (none)"]
+    inactive_lines = [f"- {{name}}" for name in FEATURE_CATALOG.keys() if name not in set(active_features)] or ["- (none)"]
+
+    return """# Feature Options
+
+## Available Features
+{{available}}
+
+## Active Features For This Run
+{{active}}
+
+## Inactive Features
+{{inactive}}
+""".format(
+    available="\\n".join(available_lines),
+    active="\\n".join(active_lines),
+    inactive="\\n".join(inactive_lines),
+    )
 
 STACK_PRESETS = {stack_presets_literal}
 
@@ -1600,6 +1686,7 @@ def build_common_context(project_type: str, stack: dict, new_details: dict | Non
 def generate_files(project_dir: Path, ctx: dict, markdown_context: list[dict], check_mode: bool = False) -> tuple[list[str], list[str]]:
     generated = []
     changed_files = []
+    active_features = set(ctx.get("active_features") or default_active_features())
 
     common_files = {{
         "AGENTS.md": generate_agents_md(ctx),
@@ -1928,24 +2015,32 @@ related:
     """,
     }}
 
-    feature_names = detect_feature_names(project_dir)
-    feature_files, specs_memory_index = build_feature_spec_files(
-        feature_names, locale=ctx.get("locale", "en")
-    )
-    common_files[".specs/memory.md"] = specs_memory_index
-    common_files.update(feature_files)
+    if "base-docs" not in active_features:
+        common_files = {{}}
+
+    if "feature-catalog" in active_features:
+        common_files[".ai-docs/FEATURES.md"] = generate_feature_status_md(sorted(active_features))
+
+    if "feature-specs" in active_features:
+        feature_names = detect_feature_names(project_dir)
+        feature_files, specs_memory_index = build_feature_spec_files(
+            feature_names, locale=ctx.get("locale", "en")
+        )
+        common_files[".specs/memory.md"] = specs_memory_index
+        common_files.update(feature_files)
 
     custom_feature_templates = ctx.get("custom_feature_templates", []) or []
-    for template in custom_feature_templates:
-        template_name = sanitize_feature_name(str(template.get("name") or "custom-feature"))
-        template_body = str(template.get("template") or "").strip()
-        if not template_body:
-            continue
-        common_files[f".specs/features/{{template_name}}/spec.md"] = template_body
+    if "feature-specs" in active_features:
+        for template in custom_feature_templates:
+            template_name = sanitize_feature_name(str(template.get("name") or "custom-feature"))
+            template_body = str(template.get("template") or "").strip()
+            if not template_body:
+                continue
+            common_files[f".specs/features/{{template_name}}/spec.md"] = template_body
 
     custom_frameworks = ctx.get("custom_frameworks", []) or []
     custom_compliance_rules = ctx.get("custom_compliance_rules", []) or []
-    if custom_frameworks or custom_compliance_rules or custom_feature_templates:
+    if "custom-agent-config" in active_features and (custom_frameworks or custom_compliance_rules or custom_feature_templates):
         framework_lines = "\\n".join(f"- {{item}}" for item in custom_frameworks) if custom_frameworks else "- (none)"
         compliance_lines = []
         for rule in custom_compliance_rules:
@@ -1975,45 +2070,47 @@ related:
     compliance_packs = ctx.get("compliance_packs", [])
     locale = ctx.get("locale", "en")
     compliance_region = ctx.get("compliance_region", "")
-    if compliance_level >= 2 and compliance_packs:
+    if "compliance-level-2" in active_features and compliance_level >= 2 and compliance_packs:
         level_2_files = generate_level_2_compliance_scanning(
             compliance_packs,
             locale=locale,
             compliance_region=compliance_region,
         )
         common_files.update(level_2_files)
-    if compliance_level >= 3 and compliance_packs:
+    if "compliance-level-3" in active_features and compliance_level >= 3 and compliance_packs:
         level_3_files = generate_level_3_compliance_patterns(
             compliance_packs,
             locale=locale,
             compliance_region=compliance_region,
         )
         common_files.update(level_3_files)
-        injection_report = generate_level_3_pattern_injection_report(
-            project_dir,
-            compliance_packs,
-        )
-        if injection_report:
-            common_files[
-                ".specs/compliance/LEVEL3-CODE-PATTERN-INJECTION.md"
-            ] = injection_report
-        ai_analysis = generate_ai_assisted_compliance_analysis(
-            project_dir,
-            compliance_packs,
-        )
-        if ai_analysis:
-            common_files[
-                ".specs/compliance/AI-ASSISTED-COMPLIANCE-ANALYSIS.md"
-            ] = ai_analysis
-        patch_proposals = generate_level_3_patch_proposals(
-            project_dir,
-            compliance_packs,
-        )
-        if patch_proposals:
-            common_files[
-                ".specs/compliance/LEVEL3-AUTO-PATCH-PROPOSALS.md"
-            ] = patch_proposals
-        if ctx.get("apply_auto_patches", False):
+        if "patch-proposals" in active_features:
+            injection_report = generate_level_3_pattern_injection_report(
+                project_dir,
+                compliance_packs,
+            )
+            if injection_report:
+                common_files[
+                    ".specs/compliance/LEVEL3-CODE-PATTERN-INJECTION.md"
+                ] = injection_report
+            patch_proposals = generate_level_3_patch_proposals(
+                project_dir,
+                compliance_packs,
+            )
+            if patch_proposals:
+                common_files[
+                    ".specs/compliance/LEVEL3-AUTO-PATCH-PROPOSALS.md"
+                ] = patch_proposals
+        if "ai-analysis" in active_features:
+            ai_analysis = generate_ai_assisted_compliance_analysis(
+                project_dir,
+                compliance_packs,
+            )
+            if ai_analysis:
+                common_files[
+                    ".specs/compliance/AI-ASSISTED-COMPLIANCE-ANALYSIS.md"
+                ] = ai_analysis
+        if ctx.get("apply_auto_patches", False) and "auto-patch-apply" in active_features:
             apply_result = apply_level_3_patch_proposals(
                 project_dir,
                 compliance_packs,
@@ -2028,16 +2125,17 @@ related:
                 common_files[
                     ".specs/compliance/LEVEL3-AUTO-PATCH-RESULTS.md"
                 ] = applied_report
-        compliance_dashboard = generate_compliance_dashboard_html(
-            project_dir,
-            compliance_packs,
-            planned_output_paths=sorted(common_files.keys()),
-        )
-        common_files[
-            ".specs/compliance/dashboard/index.html"
-        ] = compliance_dashboard
+        if "compliance-dashboard" in active_features:
+            compliance_dashboard = generate_compliance_dashboard_html(
+                project_dir,
+                compliance_packs,
+                planned_output_paths=sorted(common_files.keys()),
+            )
+            common_files[
+                ".specs/compliance/dashboard/index.html"
+            ] = compliance_dashboard
 
-    agent_files = generate_agent_specific_docs(ctx)
+    agent_files = generate_agent_specific_docs(ctx) if "agent-docs" in active_features else {{}}
     all_files = dict(common_files)
     all_files.update(agent_files)
 
@@ -2147,6 +2245,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--list-stack-presets", action="store_true", help="Print available stack presets and exit.")
     parser.add_argument("--list-intents", action="store_true", help="Print starter and keyword-mapped intent profiles and exit.")
     parser.add_argument("--list-compliance", action="store_true", help="Print available compliance packs and exit.")
+    parser.add_argument("--list-features", action="store_true", help="Print available modular feature options and defaults.")
+    parser.add_argument("--features", help="Comma-separated explicit feature set for this run.")
+    parser.add_argument("--enable-features", help="Comma-separated features to enable in addition to defaults/explicit set.")
+    parser.add_argument("--disable-features", help="Comma-separated features to disable for this run.")
     parser.add_argument("--version", action="store_true", help="Print generator version and release highlights.")
     parser.add_argument("--json-report-path", help="Optional path to write structured JSON run report.")
     parser.add_argument("--track-performance", action="store_true", help="Track run duration history and flag regressions.")
@@ -2170,6 +2272,15 @@ def main() -> None:
         print_catalogs(args.list_stack_presets, args.list_intents, args.list_compliance)
         raise SystemExit(0)
 
+    if args.list_features:
+        print("Available feature options:")
+        for name, description in FEATURE_CATALOG.items():
+            print(f"- {{name}}: {{description}}")
+        print("\\nDefault active features:")
+        for name in default_active_features():
+            print(f"- {{name}}")
+        raise SystemExit(0)
+
     project_dir = Path(args.project).resolve()
     if not project_dir.exists() or not project_dir.is_dir():
         raise SystemExit(f"Project path does not exist or is not a directory: {{project_dir}}")
@@ -2184,6 +2295,18 @@ def main() -> None:
 
     stack = detect_stack(project_dir)
     markdown_context = gather_existing_markdown_context(project_dir)
+
+    explicit_features = parse_csv_items(args.features or "")
+    enable_features = parse_csv_items(args.enable_features or "")
+    disable_features = parse_csv_items(args.disable_features or "")
+    active_features, feature_warnings = resolve_active_features(
+        explicit_features,
+        enable_features,
+        disable_features,
+        apply_auto_patches=bool(args.apply_auto_patches),
+    )
+    for warning in feature_warnings:
+        print(f"WARNING: {{warning}}")
 
     new_details = None
     if mode == "new":
@@ -2256,6 +2379,7 @@ def main() -> None:
     ctx["apply_auto_patches"] = bool(args.apply_auto_patches)
     ctx["patch_allowlist"] = parse_csv_items(args.patch_allowlist or "")
     ctx["patch_denylist"] = parse_csv_items(args.patch_denylist or "")
+    ctx["active_features"] = active_features
     run_start = time.perf_counter()
     dry_run = bool(args.dry_run)
     generated_files, changed_files = generate_files(
@@ -2312,6 +2436,7 @@ def main() -> None:
         print(f"Mode: {{mode}}")
         print(f"Managed files (planned): {{len(generated_files)}}")
         print(f"Files that would change: {{len(changed_files)}}")
+        print(f"Active features: {{', '.join(active_features) if active_features else '(none)'}}")
         for file_name in changed_files:
             print(f"- {{file_name}}")
         raise SystemExit(0)
@@ -2321,6 +2446,7 @@ def main() -> None:
     print(f"Mode: {{mode}}")
     print(f"Managed files: {{len(generated_files)}}")
     print(f"Files changed: {{len(changed_files)}}")
+    print(f"Active features: {{', '.join(active_features) if active_features else '(none)'}}")
     for file_name in changed_files:
         print(f"- {{file_name}}")
 
