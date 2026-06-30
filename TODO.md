@@ -152,6 +152,22 @@
   - Track generated file counts by feature key
   - Add feature-level timings to JSON report output
   - Surface slowest features in performance history reporting
+- [ ] **Golden snapshot coverage for feature outputs**
+  - Add snapshot fixtures for key feature combinations
+  - Detect accidental content drift in generated docs/specs
+  - Include snapshot diff hints in CI artifact output
+- [ ] **Feature config import/export**
+  - Add `--features-config` JSON input for repeatable runs
+  - Add `--write-features-config` to persist active feature sets
+  - Validate schema and reject unknown keys with clear errors
+- [ ] **Feature lifecycle policy**
+  - Define policy for experimental/deprecated feature flags
+  - Add CLI labels for stable vs experimental features
+  - Document migration path when a feature is renamed/removed
+- [ ] **Matrix performance scaling**
+  - Split matrix cases into fast and full tiers
+  - Run fast tier on PRs and full tier on main/nightly
+  - Track matrix duration trend and optimize slowest cases
 
 ---
 
