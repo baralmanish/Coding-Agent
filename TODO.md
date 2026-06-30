@@ -79,19 +79,19 @@
 
 ## Phase 5: Feature Expansion
 
-- [ ] **Add new stack presets**
-  - Identify gaps in current 22 presets
-  - Add 5-10 new framework combinations
-  - Update constants in `src/constants.py`
-- [ ] **Add new app archetypes**
-  - Expand beyond 24 existing archetypes
-  - Add 5-10 new business patterns
-  - Update archetype detection logic
-- [ ] **Implement custom agent support**
-  - Allow users to define custom frameworks
-  - Custom compliance rules configuration
-  - Custom feature templates
-- [ ] **Add multi-language support**
+- [x] **Add new stack presets**
+  - [x] Identify gaps in current 22 presets
+  - [x] Add 5-10 new framework combinations
+  - [x] Update constants in `src/constants.py`
+- [x] **Add new app archetypes**
+  - [x] Expand beyond 24 existing archetypes
+  - [x] Add 5-10 new business patterns
+  - [x] Update archetype detection logic
+- [x] **Implement custom agent support**
+  - [x] Allow users to define custom frameworks
+  - [x] Custom compliance rules configuration
+  - [x] Custom feature templates
+- [x] **Add multi-language support**
   - Translate compliance scanning rules
   - Localize feature names
   - Regional compliance framework variants

@@ -118,6 +118,37 @@ class ComplianceGeneratorTests(unittest.TestCase):
             "## Remediation Path", files[".specs/compliance/gdpr-scanning.md"]
         )
 
+    def test_level_2_spanish_localizes_headings(self):
+        files = generate_level_2_compliance_scanning(
+            [{"key": "gdpr", "name": "GDPR"}],
+            locale="es",
+        )
+        gdpr_doc = files[".specs/compliance/gdpr-scanning.md"]
+
+        self.assertIn("## Reglas de Escaneo de Codigo", gdpr_doc)
+        self.assertIn("## Ruta de Remediacion", gdpr_doc)
+
+    def test_level_3_french_localizes_heading(self):
+        files = generate_level_3_compliance_patterns(
+            [{"key": "hipaa", "name": "HIPAA"}],
+            locale="fr",
+        )
+        hipaa_doc = files[".specs/compliance/hipaa-patterns.md"]
+
+        self.assertIn("HIPAA: Modeles et Exemples d Implementation", hipaa_doc)
+
+    def test_level_2_includes_regional_variant_section(self):
+        files = generate_level_2_compliance_scanning(
+            [{"key": "soc2", "name": "SOC 2"}],
+            locale="en",
+            compliance_region="eu",
+        )
+        soc2_doc = files[".specs/compliance/soc2-scanning.md"]
+
+        self.assertIn("## Regional Variant", soc2_doc)
+        self.assertIn("- Region: EU", soc2_doc)
+        self.assertIn("EU regional guidance", soc2_doc)
+
 
 if __name__ == "__main__":
     unittest.main()

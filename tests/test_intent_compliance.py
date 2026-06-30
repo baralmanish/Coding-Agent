@@ -50,6 +50,26 @@ class IntentComplianceTests(unittest.TestCase):
         self.assertEqual(raw, "chatbot")
         self.assertEqual(blueprint.get("label"), "Chatbot")
 
+    def test_new_archetype_keywords_resolve_targeted_profile(self):
+        _, _, blueprint = mod.resolve_app_blueprint(
+            "insurance claims platform",
+            {"frameworks": ["FastAPI"], "languages": ["Python"]},
+        )
+
+        labels = [item.get("label") for item in blueprint.get("intent_ranking", [])]
+        self.assertIn("InsurTech", labels)
+        self.assertIn("Policy lifecycle", " ".join(blueprint.get("capabilities", [])))
+
+    def test_exact_archetype_keyword_input_boosts_ranking(self):
+        _, _, blueprint = mod.resolve_app_blueprint(
+            "proptech",
+            {"frameworks": ["Next.js"], "languages": ["TypeScript"]},
+        )
+
+        ranking = blueprint.get("intent_ranking", [])
+        self.assertGreater(len(ranking), 0)
+        self.assertEqual(ranking[0]["label"], "PropTech")
+
 
 if __name__ == "__main__":
     unittest.main()

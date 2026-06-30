@@ -44,6 +44,8 @@ class BootstrapIntegrationTests(unittest.TestCase):
             "generated_at": "2026-06-30 12:00:00 UTC",
             "project_type": "new",
             "target_os": target_os,
+            "locale": "en",
+            "compliance_region": "",
             "stack": stack,
             "app_intent": app_intent,
             "app_intent_input": app_intent,
@@ -124,6 +126,77 @@ class BootstrapIntegrationTests(unittest.TestCase):
             self.assertIn("payments: .specs/features/payments/spec.md", specs_index)
             self.assertIn("orders: .specs/features/orders/spec.md", specs_index)
             self.assertIn("billing: .specs/features/billing/spec.md", specs_index)
+
+    def test_feature_specs_localize_when_locale_is_spanish(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project_dir = Path(tmp)
+            (project_dir / "src" / "analytics").mkdir(parents=True, exist_ok=True)
+
+            ctx = self._build_ctx(
+                project_dir,
+                target_os="linux",
+                compliance_keys=[],
+                compliance_level=1,
+            )
+            ctx["locale"] = "es"
+
+            mod.generate_files(project_dir, ctx, markdown_context=[], check_mode=False)
+
+            spec_doc = (
+                project_dir / ".specs" / "features" / "analytics" / "spec.md"
+            ).read_text(encoding="utf-8")
+            self.assertIn("# Especificacion de Funcionalidad: analytics", spec_doc)
+
+    def test_custom_agent_support_generates_custom_outputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project_dir = Path(tmp)
+            stack = mod.detect_stack(project_dir)
+
+            new_details = {
+                "target_os": "macos",
+                "app_intent": "general-app",
+                "app_intent_input": "general-app",
+                "compliance_keys": [],
+                "compliance_level": 1,
+                "agents": list(mod.DEFAULT_AGENTS),
+                "custom_frameworks": ["GraphQL Mesh"],
+                "custom_compliance_rules": [
+                    {
+                        "key": "internal-sec",
+                        "name": "Internal Security",
+                        "checks": ["Enforce tenant encryption"],
+                    }
+                ],
+                "custom_feature_templates": [
+                    {
+                        "name": "risk-engine",
+                        "template": "# Feature Spec: Risk Engine\n\n## Goal\nCustom risk workflow",
+                    }
+                ],
+            }
+
+            ctx = mod.build_common_context(
+                "new",
+                stack,
+                new_details,
+                "2026-06-30 12:00:00 UTC",
+            )
+
+            generated, _ = mod.generate_files(
+                project_dir, ctx, markdown_context=[], check_mode=False
+            )
+            generated_set = set(generated)
+
+            self.assertIn("GraphQL Mesh", ctx["stack"]["frameworks"])
+            compliance_keys = [item.get("key") for item in ctx["compliance_packs"]]
+            self.assertIn("internal-sec", compliance_keys)
+            self.assertIn(".specs/features/risk-engine/spec.md", generated_set)
+            self.assertIn(".ai-docs/CUSTOM-AGENT-CONFIG.md", generated_set)
+
+            custom_spec = (
+                project_dir / ".specs" / "features" / "risk-engine" / "spec.md"
+            ).read_text(encoding="utf-8")
+            self.assertIn("Custom risk workflow", custom_spec)
 
 
 if __name__ == "__main__":

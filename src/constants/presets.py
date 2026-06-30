@@ -1,5 +1,258 @@
 """App archetypes and domain-specific blueprints."""
 
+STACK_PRESETS = {
+    "react-ts": {
+        "languages": ["TypeScript"],
+        "frameworks": ["React"],
+        "tests": ["vitest", "@testing-library/react"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Enable strict tsconfig and type-aware ESLint rules.",
+            "Use Testing Library with Vitest for component and integration tests.",
+        ],
+    },
+    "next-ts": {
+        "languages": ["TypeScript"],
+        "frameworks": ["Next.js"],
+        "tests": ["vitest", "playwright"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Adopt route-level testing and API contract checks.",
+            "Use preview deployments to validate doc-guided workflows.",
+        ],
+    },
+    "node-api": {
+        "languages": ["TypeScript"],
+        "frameworks": ["Express"],
+        "tests": ["vitest", "supertest"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Validate request/response schemas at boundaries.",
+            "Add integration tests for critical API paths.",
+        ],
+    },
+    "express-ts": {
+        "languages": ["TypeScript"],
+        "frameworks": ["Express"],
+        "tests": ["vitest", "supertest"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Define API contracts and validate request/response payloads.",
+            "Use centralized error handling and structured logging.",
+        ],
+    },
+    "fastify-ts": {
+        "languages": ["TypeScript"],
+        "frameworks": ["Fastify"],
+        "tests": ["vitest", "supertest"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Use schema-first routes for validation and speed.",
+            "Enable serialization and benchmark critical endpoints.",
+        ],
+    },
+    "nestjs": {
+        "languages": ["TypeScript"],
+        "frameworks": ["NestJS"],
+        "tests": ["jest", "supertest"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Organize by bounded modules and enforce DTO validation.",
+            "Use e2e test modules for critical workflows.",
+        ],
+    },
+    "angular": {
+        "languages": ["TypeScript"],
+        "frameworks": ["Angular"],
+        "tests": ["jest", "cypress"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Use strict template/type checks and standalone components.",
+            "Add component integration tests for key user journeys.",
+        ],
+    },
+    "vue": {
+        "languages": ["TypeScript"],
+        "frameworks": ["Vue"],
+        "tests": ["vitest", "@vue/test-utils", "playwright"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Adopt composables for reusable logic and better testability.",
+            "Add route-level tests for stateful flows.",
+        ],
+    },
+    "react-native": {
+        "languages": ["TypeScript"],
+        "frameworks": ["React Native"],
+        "tests": ["jest", "@testing-library/react-native", "detox"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Separate UI and platform services to simplify testing.",
+            "Validate navigation and offline scenarios with e2e tests.",
+        ],
+    },
+    "laravel": {
+        "languages": ["PHP"],
+        "frameworks": ["Laravel"],
+        "tests": ["phpunit", "pest"],
+        "linting": ["php-cs-fixer", "larastan"],
+        "suggestions": [
+            "Use form requests/policies for validation and authorization.",
+            "Cover jobs/events and critical endpoints with feature tests.",
+        ],
+    },
+    "nuxt": {
+        "languages": ["TypeScript"],
+        "frameworks": ["Nuxt"],
+        "tests": ["vitest", "playwright"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Use server routes and composables with explicit contracts.",
+            "Add rendering and navigation tests for core pages.",
+        ],
+    },
+    "sveltekit": {
+        "languages": ["TypeScript"],
+        "frameworks": ["SvelteKit"],
+        "tests": ["vitest", "playwright"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Keep load/actions predictable and strongly typed.",
+            "Test server/client boundaries for auth and data flows.",
+        ],
+    },
+    "django": {
+        "languages": ["Python"],
+        "frameworks": ["Django"],
+        "tests": ["pytest", "pytest-django"],
+        "linting": ["ruff", "mypy"],
+        "suggestions": [
+            "Use service-layer patterns for complex business logic.",
+            "Add integration tests for ORM queries and permissions.",
+        ],
+    },
+    "go-fiber": {
+        "languages": ["Go"],
+        "frameworks": ["Fiber"],
+        "tests": ["go test"],
+        "linting": ["golangci-lint"],
+        "suggestions": [
+            "Keep handlers thin and move business logic to services.",
+            "Use benchmarks for high-throughput endpoints.",
+        ],
+    },
+    "spring-boot": {
+        "languages": ["Java"],
+        "frameworks": ["Spring Boot"],
+        "tests": ["junit", "testcontainers"],
+        "linting": ["checkstyle", "spotbugs"],
+        "suggestions": [
+            "Use layered architecture with clear domain boundaries.",
+            "Add integration tests for repositories and APIs.",
+        ],
+    },
+    "dotnet-webapi": {
+        "languages": ["C#"],
+        "frameworks": ["ASP.NET Core"],
+        "tests": ["xunit"],
+        "linting": ["dotnet format"],
+        "suggestions": [
+            "Use DTO validation and strict API contracts.",
+            "Add integration tests with WebApplicationFactory.",
+        ],
+    },
+    "swift-vapor": {
+        "languages": ["Swift"],
+        "frameworks": ["Vapor"],
+        "tests": ["xctest"],
+        "linting": ["swift-format", "swiftlint"],
+        "suggestions": [
+            "Use typed DTOs and explicit validation for request handlers.",
+            "Add integration tests for routes and middleware pipelines.",
+        ],
+    },
+    "swift-ios": {
+        "languages": ["Swift"],
+        "frameworks": ["SwiftUI"],
+        "tests": ["xctest"],
+        "linting": ["swift-format", "swiftlint"],
+        "suggestions": [
+            "Structure state with clear view-model boundaries for testability.",
+            "Add UI and unit tests for navigation, state transitions, and error paths.",
+        ],
+    },
+    "fastapi": {
+        "languages": ["Python"],
+        "frameworks": ["FastAPI"],
+        "tests": ["pytest"],
+        "linting": ["ruff", "mypy"],
+        "suggestions": [
+            "Use pydantic models for strict input/output validation.",
+            "Add contract tests for OpenAPI schema compatibility.",
+        ],
+    },
+    "remix": {
+        "languages": ["TypeScript"],
+        "frameworks": ["Remix"],
+        "tests": ["vitest", "playwright"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Test loaders/actions with strict request boundary contracts.",
+            "Validate nested route data dependencies with integration tests.",
+        ],
+    },
+    "flask-api": {
+        "languages": ["Python"],
+        "frameworks": ["Flask"],
+        "tests": ["pytest"],
+        "linting": ["ruff", "mypy"],
+        "suggestions": [
+            "Use blueprint separation and schema validation at API edges.",
+            "Add contract tests for auth, pagination, and error handling.",
+        ],
+    },
+    "phoenix": {
+        "languages": ["Elixir"],
+        "frameworks": ["Phoenix"],
+        "tests": ["mix test"],
+        "linting": ["mix format", "credo"],
+        "suggestions": [
+            "Model contexts around bounded domains and explicit contracts.",
+            "Use integration tests for channels, auth, and background workflows.",
+        ],
+    },
+    "rails-api": {
+        "languages": ["Ruby"],
+        "frameworks": ["Rails"],
+        "tests": ["rspec"],
+        "linting": ["rubocop", "brakeman"],
+        "suggestions": [
+            "Keep services and policies explicit for complex business rules.",
+            "Add request specs for auth, tenancy, and error behavior.",
+        ],
+    },
+    "quarkus": {
+        "languages": ["Java"],
+        "frameworks": ["Quarkus"],
+        "tests": ["junit"],
+        "linting": ["checkstyle", "spotbugs"],
+        "suggestions": [
+            "Use profile-driven config and CDI boundaries for modular services.",
+            "Add testcontainers-backed tests for persistence and messaging.",
+        ],
+    },
+    "astro": {
+        "languages": ["TypeScript"],
+        "frameworks": ["Astro"],
+        "tests": ["vitest", "playwright"],
+        "linting": ["eslint", "prettier"],
+        "suggestions": [
+            "Use island boundaries deliberately to keep hydration predictable.",
+            "Test content collections and route generation for SEO-critical pages.",
+        ],
+    },
+}
+
 APP_ARCHETYPES = {
     "general-app": {
         "label": "General App",
@@ -359,6 +612,96 @@ INTENT_KEYWORD_BLUEPRINTS = [
             "suggestions": [
                 "Model approval chains explicitly with audit evidence.",
                 "Apply strict data retention and redaction controls.",
+            ],
+        },
+    ),
+    (
+        ["insurance", "insurtech", "claims", "underwriting", "policy"],
+        {
+            "label": "InsurTech",
+            "capabilities": [
+                "Policy lifecycle, endorsements, and renewals",
+                "Claims intake, adjudication, and payout workflows",
+                "Fraud scoring and risk-based underwriting pipelines",
+            ],
+            "suggestions": [
+                "Model policy and claim states as explicit workflow transitions.",
+                "Use audit trails for every underwriting and claims decision.",
+            ],
+        },
+    ),
+    (
+        ["real-estate", "proptech", "listing", "broker", "tenant"],
+        {
+            "label": "PropTech",
+            "capabilities": [
+                "Property listings, search filters, and recommendation flows",
+                "Lease lifecycle, tenant onboarding, and document workflows",
+                "Broker/owner permissions and transaction timelines",
+            ],
+            "suggestions": [
+                "Separate listing discovery from transaction and contract workflows.",
+                "Use immutable event logs for offer, lease, and payment milestones.",
+            ],
+        },
+    ),
+    (
+        ["manufacturing", "factory", "mes", "production", "inventory-control"],
+        {
+            "label": "Manufacturing / MES",
+            "capabilities": [
+                "Production order planning and work-center scheduling",
+                "Inventory traceability and quality-control checkpoints",
+                "Machine telemetry ingestion and downtime analytics",
+            ],
+            "suggestions": [
+                "Track production state changes with lot and batch lineage.",
+                "Add quality-gate validation before advancing workflow stages.",
+            ],
+        },
+    ),
+    (
+        ["nonprofit", "ngo", "donation", "fundraising", "grant"],
+        {
+            "label": "Nonprofit / Fundraising",
+            "capabilities": [
+                "Donor lifecycle, campaign management, and recurring giving",
+                "Grant application tracking and disbursement workflows",
+                "Outcome reporting and compliance evidence generation",
+            ],
+            "suggestions": [
+                "Keep donation and grant accounting trails immutable and auditable.",
+                "Model campaign attribution and donor communication preferences clearly.",
+            ],
+        },
+    ),
+    (
+        ["security", "soc", "siem", "threat", "vulnerability"],
+        {
+            "label": "Cybersecurity Platform",
+            "capabilities": [
+                "Security event ingestion, enrichment, and correlation",
+                "Alert triage, escalation, and incident response orchestration",
+                "Vulnerability lifecycle and remediation tracking",
+            ],
+            "suggestions": [
+                "Design deterministic severity scoring and response runbooks.",
+                "Use tenant-aware isolation for logs, detections, and response actions.",
+            ],
+        },
+    ),
+    (
+        ["climate", "carbon", "esg", "sustainability", "emissions"],
+        {
+            "label": "Climate / ESG",
+            "capabilities": [
+                "Emissions data ingestion and normalization pipelines",
+                "Supplier/facility reporting and disclosure workflows",
+                "Target tracking and audit-ready sustainability dashboards",
+            ],
+            "suggestions": [
+                "Version methodologies for emissions calculations and reporting factors.",
+                "Track data provenance for every ESG metric and disclosure artifact.",
             ],
         },
     ),

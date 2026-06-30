@@ -655,14 +655,22 @@ def resolve_app_blueprint(
     for keywords, blueprint in INTENT_KEYWORD_BLUEPRINTS:
         hit_keywords = []
         score = 0
+        resolved_label = blueprint.get("label", "Custom Profile")
+        label_slug = slugify_intent_key(resolved_label)
+
         for word in keywords:
             points, matched_word = keyword_confidence_score(low, word)
             if matched_word:
                 hit_keywords.append(word)
                 score += points
+
+        keyword_slug_hits = {slugify_intent_key(word) for word in keywords}
+        if key == label_slug or key in keyword_slug_hits:
+            # Strong signal when user intent explicitly names an archetype or one of its canonical keywords.
+            score += 10
+
         if score > 0:
             matched = True
-            resolved_label = blueprint.get("label", "Custom Profile")
             bonus = framework_bonus.get(resolved_label, 0)
             ranked_matches.append(
                 {

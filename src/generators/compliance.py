@@ -5,8 +5,74 @@ and validation scripts for each supported framework (PCI-DSS, HIPAA, GDPR, etc.)
 """
 
 
+def _localization_tokens(locale: str) -> dict[str, str]:
+    lang = (locale or "en").strip().lower()
+    tokens = {
+        "es": {
+            "Scanning & Validation": "Escaneo y Validacion",
+            "Code Scanning Rules": "Reglas de Escaneo de Codigo",
+            "Configuration Validation": "Validacion de Configuracion",
+            "Remediation Path": "Ruta de Remediacion",
+            "Patterns & Implementation Examples": "Patrones y Ejemplos de Implementacion",
+            "Implementation Patterns": "Patrones de Implementacion",
+            "Acceptance Criteria": "Criterios de Aceptacion",
+            "Validation Checks": "Verificaciones de Validacion",
+            "Notes": "Notas",
+        },
+        "fr": {
+            "Scanning & Validation": "Analyse et Validation",
+            "Code Scanning Rules": "Regles d Analyse du Code",
+            "Configuration Validation": "Validation de Configuration",
+            "Remediation Path": "Parcours de Remediation",
+            "Patterns & Implementation Examples": "Modeles et Exemples d Implementation",
+            "Implementation Patterns": "Modeles d Implementation",
+            "Acceptance Criteria": "Criteres d Acceptation",
+            "Validation Checks": "Verifications de Validation",
+            "Notes": "Notes",
+        },
+    }
+    return tokens.get(lang, {})
+
+
+def _apply_locale(content: str, locale: str) -> str:
+    localized = content
+    for source, target in _localization_tokens(locale).items():
+        localized = localized.replace(source, target)
+    return localized
+
+
+def _apply_region_variant(content: str, compliance_region: str | None) -> str:
+    region = (compliance_region or "").strip().lower()
+    if not region:
+        return content
+    labels = {
+        "eu": "EU regional guidance",
+        "us": "US regional guidance",
+        "apac": "APAC regional guidance",
+        "latam": "LATAM regional guidance",
+    }
+    title = labels.get(region, f"{region.upper()} regional guidance")
+    return (
+        content.rstrip()
+        + "\n\n"
+        + f"## Regional Variant\n- Region: {region.upper()}\n- Profile: {title}\n"
+    )
+
+
+def _localize_and_apply_region(
+    files: dict[str, str], locale: str, compliance_region: str | None
+) -> dict[str, str]:
+    adjusted = {}
+    for path, content in files.items():
+        localized = _apply_locale(content, locale)
+        adjusted[path] = _apply_region_variant(localized, compliance_region)
+    return adjusted
+
+
 def generate_level_2_compliance_scanning(
     compliance_packs: list[dict],
+    locale: str = "en",
+    compliance_region: str | None = None,
 ) -> dict[str, str]:
     """Generate Level 2 compliance scanning rules and validation scripts."""
     files = {}
@@ -178,11 +244,13 @@ See compliance framework documentation for validation checklists.
 5. Document in compliance log
 """
 
-    return files
+    return _localize_and_apply_region(files, locale, compliance_region)
 
 
 def generate_level_3_compliance_patterns(
     compliance_packs: list[dict],
+    locale: str = "en",
+    compliance_region: str | None = None,
 ) -> dict[str, str]:
     """Generate Level 3 implementation pattern examples."""
     files = {}
@@ -298,9 +366,9 @@ def store_payment_metadata(order_id: str, card_token: str, customer_id: str):
 - Rotate encryption keys and validate decryption in disaster recovery drills.
 """
 
-        hipaa_packs = [p for p in compliance_packs if p.get("key") == "hipaa"]
-        if hipaa_packs:
-            files[".specs/compliance/hipaa-patterns.md"] = """---
+    hipaa_packs = [p for p in compliance_packs if p.get("key") == "hipaa"]
+    if hipaa_packs:
+        files[".specs/compliance/hipaa-patterns.md"] = """---
 title: HIPAA Implementation Patterns
 type: compliance-patterns
 tags: [compliance, hipaa, patterns, implementation]
@@ -354,9 +422,9 @@ def fetch_patient_record(patient_id: str, actor: User):
 3. Access events are logged with actor, purpose, and trace metadata.
 """
 
-        gdpr_packs = [p for p in compliance_packs if p.get("key") == "gdpr"]
-        if gdpr_packs:
-            files[".specs/compliance/gdpr-patterns.md"] = """---
+    gdpr_packs = [p for p in compliance_packs if p.get("key") == "gdpr"]
+    if gdpr_packs:
+        files[".specs/compliance/gdpr-patterns.md"] = """---
 title: GDPR Implementation Patterns
 type: compliance-patterns
 tags: [compliance, gdpr, patterns, implementation]
@@ -403,9 +471,9 @@ def erase_user_data(user_id: str):
 3. Deletion workflows remove data from primary and derived stores.
 """
 
-        soc2_packs = [p for p in compliance_packs if p.get("key") == "soc2"]
-        if soc2_packs:
-            files[".specs/compliance/soc2-patterns.md"] = """---
+    soc2_packs = [p for p in compliance_packs if p.get("key") == "soc2"]
+    if soc2_packs:
+        files[".specs/compliance/soc2-patterns.md"] = """---
 title: SOC2 Implementation Patterns
 type: compliance-patterns
 tags: [compliance, soc2, patterns, implementation]
@@ -453,9 +521,9 @@ app.get('/healthz', (_req, res) => {
 3. Service health endpoints provide deterministic readiness signals.
 """
 
-        ccpa_packs = [p for p in compliance_packs if p.get("key") == "ccpa"]
-        if ccpa_packs:
-            files[".specs/compliance/ccpa-patterns.md"] = """---
+    ccpa_packs = [p for p in compliance_packs if p.get("key") == "ccpa"]
+    if ccpa_packs:
+        files[".specs/compliance/ccpa-patterns.md"] = """---
 title: CCPA/CPRA Implementation Patterns
 type: compliance-patterns
 tags: [compliance, ccpa, cpra, patterns, implementation]
@@ -504,9 +572,9 @@ def export_consumer_data(consumer_id: str) -> dict:
 3. Deletion requests are tracked from intake through completion.
 """
 
-        iso_packs = [p for p in compliance_packs if p.get("key") == "iso27001"]
-        if iso_packs:
-            files[".specs/compliance/iso27001-patterns.md"] = """---
+    iso_packs = [p for p in compliance_packs if p.get("key") == "iso27001"]
+    if iso_packs:
+        files[".specs/compliance/iso27001-patterns.md"] = """---
 title: ISO27001 Implementation Patterns
 type: compliance-patterns
 tags: [compliance, iso27001, patterns, implementation]
@@ -558,4 +626,4 @@ incidentctl create --severity high --service customer-data-api --summary "Potent
 3. Security incidents can be raised with a standardized, repeatable workflow.
 """
 
-    return files
+    return _localize_and_apply_region(files, locale, compliance_region)

@@ -38,6 +38,7 @@ from src.lib import (
 from src.constants import (
     COMPLIANCE_PACKS,
     COMPLIANCE_ALIASES,
+    STACK_PRESETS,
     APP_ARCHETYPES,
     INTENT_KEYWORD_BLUEPRINTS,
     FRAMEWORK_INTENT_HINTS,
@@ -153,7 +154,25 @@ def write_metadata_simple(
     metadata_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-def build_feature_spec_files(feature_names: list[str]) -> tuple[dict[str, str], str]:
+def build_feature_spec_files(
+    feature_names: list[str], locale: str = "en"
+) -> tuple[dict[str, str], str]:
+    lang = (locale or "en").strip().lower()
+    labels = {
+        "en": {"spec": "Feature Spec", "memory": "Feature Memory"},
+        "es": {
+            "spec": "Especificacion de Funcionalidad",
+            "memory": "Memoria de Funcionalidad",
+        },
+        "fr": {
+            "spec": "Specification de Fonctionnalite",
+            "memory": "Memoire de Fonctionnalite",
+        },
+    }
+    localized = labels.get(lang, labels["en"])
+    spec_label = localized["spec"]
+    memory_label = localized["memory"]
+
     files = {}
     index_lines = [
         "---",
@@ -180,7 +199,7 @@ def build_feature_spec_files(feature_names: list[str]) -> tuple[dict[str, str], 
         memory_path = f".specs/features/{feature}/memory.md"
 
         files[spec_path] = f"""---
-title: Feature Spec {feature}
+    title: {spec_label} {feature}
 type: feature-spec
 tags: [ai-docs, specs, knowledge-graph]
 related:
@@ -188,7 +207,7 @@ related:
   - [[.specs/features/{feature}/memory.md]]
 ---
 
-# Feature Spec: {feature}
+    # {spec_label}: {feature}
 
 ## Goal
 Define expected behavior for {feature}.
@@ -209,7 +228,7 @@ Define expected behavior for {feature}.
 """
 
         files[memory_path] = f"""---
-title: Feature Memory {feature}
+    title: {memory_label} {feature}
 type: feature-memory
 tags: [ai-docs, memory, knowledge-graph]
 related:
@@ -217,7 +236,7 @@ related:
   - [[.specs/features/{feature}/spec.md]]
 ---
 
-# Feature Memory: {feature}
+    # {memory_label}: {feature}
 
 ## Decisions
 - <record key implementation and design decisions>
@@ -262,7 +281,10 @@ def _prepare_embedded_sources() -> tuple[str, str]:
                 if (
                     current_lines[i]
                     and not current_lines[i][0].isspace()
-                    and current_lines[i].startswith("def ")
+                    and (
+                        current_lines[i].startswith("def ")
+                        or current_lines[i].startswith("@")
+                    )
                 ):
                     break
                 i += 1
@@ -296,7 +318,7 @@ def _prepare_embedded_sources() -> tuple[str, str]:
         lines = comp_content.split("\n")
         func_start = None
         for i, line in enumerate(lines):
-            if line.startswith("def generate_level_2_compliance_scanning"):
+            if line.startswith("def _localization_tokens"):
                 func_start = i
                 break
         if func_start is not None:
@@ -350,6 +372,9 @@ def _prepare_embedded_sources() -> tuple[str, str]:
 def build_bootstrap_script(master_prompt: str, target_os: str) -> str:
     prompt_literal = json.dumps(master_prompt)
     target_os_literal = json.dumps(target_os)
+    stack_presets_literal = json.dumps(STACK_PRESETS, indent=4)
+    app_archetypes_literal = json.dumps(APP_ARCHETYPES, indent=4)
+    intent_keyword_blueprints_literal = json.dumps(INTENT_KEYWORD_BLUEPRINTS, indent=4)
     utility_functions_escaped, gen_functions_escaped = _prepare_embedded_sources()
 
     gen_functions_setup = f"""# Embed utility functions
@@ -393,577 +418,11 @@ DEFAULT_AGENTS = [
     "antigravity",
 ]
 
-STACK_PRESETS = {{
-    "react-ts": {{
-        "languages": ["TypeScript"],
-        "frameworks": ["React"],
-        "tests": ["vitest", "@testing-library/react"],
-        "linting": ["eslint", "prettier"],
-        "suggestions": [
-            "Enable strict tsconfig and type-aware ESLint rules.",
-            "Use Testing Library with Vitest for component and integration tests.",
-        ],
-    }},
-    "next-ts": {{
-        "languages": ["TypeScript"],
-        "frameworks": ["Next.js"],
-        "tests": ["vitest", "playwright"],
-        "linting": ["eslint", "prettier"],
-        "suggestions": [
-            "Adopt route-level testing and API contract checks.",
-            "Use preview deployments to validate doc-guided workflows.",
-        ],
-    }},
-    "node-api": {{
-        "languages": ["TypeScript"],
-        "frameworks": ["Express"],
-        "tests": ["vitest", "supertest"],
-        "linting": ["eslint", "prettier"],
-        "suggestions": [
-            "Validate request/response schemas at boundaries.",
-            "Add integration tests for critical API paths.",
-        ],
-    }},
-    "express-ts": {{
-        "languages": ["TypeScript"],
-        "frameworks": ["Express"],
-        "tests": ["vitest", "supertest"],
-        "linting": ["eslint", "prettier"],
-        "suggestions": [
-            "Define API contracts and validate request/response payloads.",
-            "Use centralized error handling and structured logging.",
-        ],
-    }},
-    "fastify-ts": {{
-        "languages": ["TypeScript"],
-        "frameworks": ["Fastify"],
-        "tests": ["vitest", "supertest"],
-        "linting": ["eslint", "prettier"],
-        "suggestions": [
-            "Use schema-first routes for validation and speed.",
-            "Enable serialization and benchmark critical endpoints.",
-        ],
-    }},
-    "nestjs": {{
-        "languages": ["TypeScript"],
-        "frameworks": ["NestJS"],
-        "tests": ["jest", "supertest"],
-        "linting": ["eslint", "prettier"],
-        "suggestions": [
-            "Organize by bounded modules and enforce DTO validation.",
-            "Use e2e test modules for critical workflows.",
-        ],
-    }},
-    "angular": {{
-        "languages": ["TypeScript"],
-        "frameworks": ["Angular"],
-        "tests": ["jest", "cypress"],
-        "linting": ["eslint", "prettier"],
-        "suggestions": [
-            "Use strict template/type checks and standalone components.",
-            "Add component integration tests for key user journeys.",
-        ],
-    }},
-    "vue": {{
-        "languages": ["TypeScript"],
-        "frameworks": ["Vue"],
-        "tests": ["vitest", "@vue/test-utils", "playwright"],
-        "linting": ["eslint", "prettier"],
-        "suggestions": [
-            "Adopt composables for reusable logic and better testability.",
-            "Add route-level tests for stateful flows.",
-        ],
-    }},
-    "react-native": {{
-        "languages": ["TypeScript"],
-        "frameworks": ["React Native"],
-        "tests": ["jest", "@testing-library/react-native", "detox"],
-        "linting": ["eslint", "prettier"],
-        "suggestions": [
-            "Separate UI and platform services to simplify testing.",
-            "Validate navigation and offline scenarios with e2e tests.",
-        ],
-    }},
-    "laravel": {{
-        "languages": ["PHP"],
-        "frameworks": ["Laravel"],
-        "tests": ["phpunit", "pest"],
-        "linting": ["php-cs-fixer", "larastan"],
-        "suggestions": [
-            "Use form requests/policies for validation and authorization.",
-            "Cover jobs/events and critical endpoints with feature tests.",
-        ],
-    }},
-    "nuxt": {{
-        "languages": ["TypeScript"],
-        "frameworks": ["Nuxt"],
-        "tests": ["vitest", "playwright"],
-        "linting": ["eslint", "prettier"],
-        "suggestions": [
-            "Use server routes and composables with explicit contracts.",
-            "Add rendering and navigation tests for core pages.",
-        ],
-    }},
-    "sveltekit": {{
-        "languages": ["TypeScript"],
-        "frameworks": ["SvelteKit"],
-        "tests": ["vitest", "playwright"],
-        "linting": ["eslint", "prettier"],
-        "suggestions": [
-            "Keep load/actions predictable and strongly typed.",
-            "Test server/client boundaries for auth and data flows.",
-        ],
-    }},
-    "django": {{
-        "languages": ["Python"],
-        "frameworks": ["Django"],
-        "tests": ["pytest", "pytest-django"],
-        "linting": ["ruff", "mypy"],
-        "suggestions": [
-            "Use service-layer patterns for complex business logic.",
-            "Add integration tests for ORM queries and permissions.",
-        ],
-    }},
-    "go-fiber": {{
-        "languages": ["Go"],
-        "frameworks": ["Fiber"],
-        "tests": ["go test"],
-        "linting": ["golangci-lint"],
-        "suggestions": [
-            "Keep handlers thin and move business logic to services.",
-            "Use benchmarks for high-throughput endpoints.",
-        ],
-    }},
-    "spring-boot": {{
-        "languages": ["Java"],
-        "frameworks": ["Spring Boot"],
-        "tests": ["junit", "testcontainers"],
-        "linting": ["checkstyle", "spotbugs"],
-        "suggestions": [
-            "Use layered architecture with clear domain boundaries.",
-            "Add integration tests for repositories and APIs.",
-        ],
-    }},
-    "dotnet-webapi": {{
-        "languages": ["C#"],
-        "frameworks": ["ASP.NET Core"],
-        "tests": ["xunit"],
-        "linting": ["dotnet format"],
-        "suggestions": [
-            "Use DTO validation and strict API contracts.",
-            "Add integration tests with WebApplicationFactory.",
-        ],
-    }},
-    "swift-vapor": {{
-        "languages": ["Swift"],
-        "frameworks": ["Vapor"],
-        "tests": ["xctest"],
-        "linting": ["swift-format", "swiftlint"],
-        "suggestions": [
-            "Use typed DTOs and explicit validation for request handlers.",
-            "Add integration tests for routes and middleware pipelines.",
-        ],
-    }},
-    "swift-ios": {{
-        "languages": ["Swift"],
-        "frameworks": ["SwiftUI"],
-        "tests": ["xctest"],
-        "linting": ["swift-format", "swiftlint"],
-        "suggestions": [
-            "Structure state with clear view-model boundaries for testability.",
-            "Add UI and unit tests for navigation, state transitions, and error paths.",
-        ],
-    }},
-    "fastapi": {{
-        "languages": ["Python"],
-        "frameworks": ["FastAPI"],
-        "tests": ["pytest"],
-        "linting": ["ruff", "mypy"],
-        "suggestions": [
-            "Use pydantic models for strict input/output validation.",
-            "Add contract tests for OpenAPI schema compatibility.",
-        ],
-    }},
-}}
+STACK_PRESETS = {stack_presets_literal}
 
-APP_ARCHETYPES = {{
-    "general-app": {{
-        "label": "General App",
-        "description": "Balanced defaults for product and platform features.",
-        "capabilities": [
-            "Authentication and authorization",
-            "Core CRUD/API workflows",
-            "Observability (logs, metrics, traces)",
-        ],
-        "suggestions": [
-            "Define clear domain modules and API boundaries early.",
-            "Add integration tests for high-value user workflows.",
-        ],
-    }},
-    "chatbot": {{
-        "label": "Chatbot",
-        "description": "Conversational product with retrieval and safety controls.",
-        "capabilities": [
-            "Conversation/session state",
-            "Prompt and tool orchestration",
-            "Knowledge retrieval (RAG) and grounding",
-            "Guardrails, moderation, and abuse controls",
-        ],
-        "suggestions": [
-            "Version prompts and evaluate responses against test datasets.",
-            "Implement latency/error budgets for model and retrieval calls.",
-            "Add red-team safety cases and policy checks in CI.",
-        ],
-    }},
-    "crm": {{
-        "label": "CRM",
-        "description": "Business application with multi-role workflows and data integrity.",
-        "capabilities": [
-            "Accounts/contacts/opportunities lifecycle",
-            "Role-based access control and audit logs",
-            "Search/filter/reporting dashboards",
-            "Background jobs and integration webhooks",
-        ],
-        "suggestions": [
-            "Model entities and relationships before implementing endpoints/UI.",
-            "Enforce RBAC and auditability for all sensitive mutations.",
-            "Add migration and seed strategy for predictable environments.",
-        ],
-    }},
-}}
+APP_ARCHETYPES = {app_archetypes_literal}
 
-INTENT_KEYWORD_BLUEPRINTS = [
-    (
-        ["analytics", "bi", "dashboard", "reporting"],
-        {{
-            "label": "Analytics",
-            "capabilities": [
-                "Event ingestion and schema validation",
-                "Aggregation pipelines and materialized views",
-                "Role-based dashboards and export workflows",
-            ],
-            "suggestions": [
-                "Define event taxonomy/versioning before implementation.",
-                "Add data quality and backfill verification checks in CI.",
-            ],
-        }},
-    ),
-    (
-        ["crash", "logger", "error", "observability", "monitoring"],
-        {{
-            "label": "Crash Logger",
-            "capabilities": [
-                "Client/server error capture pipelines",
-                "Deduplication, fingerprinting, and issue grouping",
-                "Alert routing and incident triage workflows",
-            ],
-            "suggestions": [
-                "Capture structured context while redacting sensitive data.",
-                "Define alert severity SLOs to reduce notification noise.",
-            ],
-        }},
-    ),
-    (
-        ["social", "community", "feed", "network"],
-        {{
-            "label": "Social App",
-            "capabilities": [
-                "Profiles, follows/friendships, and privacy controls",
-                "Feed ranking, reactions, and comment moderation",
-                "Notifications and abuse-report workflows",
-            ],
-            "suggestions": [
-                "Design moderation and anti-abuse controls from day one.",
-                "Use idempotent event processing for feed and notification fanout.",
-            ],
-        }},
-    ),
-    (
-        ["wallet", "ewallet", "e-wallet", "payments", "fintech"],
-        {{
-            "label": "E-Wallet",
-            "capabilities": [
-                "Ledger-based balances and transaction history",
-                "KYC/compliance gates and fraud checks",
-                "Reconciliation jobs and dispute workflows",
-            ],
-            "suggestions": [
-                "Use append-only transaction logs and idempotency keys.",
-                "Enforce strict authorization and audit trails on money movement.",
-            ],
-        }},
-    ),
-    (
-        ["chat", "messaging", "whatsapp", "telegram"],
-        {{
-            "label": "Chat App",
-            "capabilities": [
-                "Real-time messaging and delivery status",
-                "Presence, typing indicators, and unread state",
-                "Media attachments and retention policies",
-            ],
-            "suggestions": [
-                "Use durable message ids and retry-safe delivery semantics.",
-                "Add abuse/spam protection and privacy-preserving defaults.",
-            ],
-        }},
-    ),
-    (
-        ["ride", "booking", "mobility", "taxi", "cab"],
-        {{
-            "label": "Ride Booking",
-            "capabilities": [
-                "Rider/driver matching and dispatch",
-                "Live location tracking and ETA updates",
-                "Fare calculation, wallet, and trip settlement",
-            ],
-            "suggestions": [
-                "Use geospatial indexing and event-driven trip state transitions.",
-                "Design retry-safe booking/payment workflows with idempotency keys.",
-            ],
-        }},
-    ),
-    (
-        ["ecommerce", "e-commerce", "commerce", "marketplace", "shop", "store"],
-        {{
-            "label": "E-Commerce",
-            "capabilities": [
-                "Catalog/search, cart, and checkout flows",
-                "Inventory, order lifecycle, and fulfillment",
-                "Promotions, returns, and payment integration",
-            ],
-            "suggestions": [
-                "Model order states explicitly and keep payment webhooks idempotent.",
-                "Add anti-fraud, stock reservation, and reconciliation workflows.",
-            ],
-        }},
-    ),
-    (
-        ["scraper", "scrapping", "scraping", "crawler", "crawl", "extract"],
-        {{
-            "label": "Scraper / Data Ingestion",
-            "capabilities": [
-                "Crawl scheduling and polite rate limiting",
-                "Parsing, normalization, and deduplication pipelines",
-                "Storage, retry queues, and failure recovery",
-            ],
-            "suggestions": [
-                "Respect robots.txt/terms and enforce adaptive throttling.",
-                "Use deterministic parsing contracts and monitor extraction drift.",
-            ],
-        }},
-    ),
-    (
-        ["delivery", "logistics", "supply", "fulfillment"],
-        {{
-            "label": "Delivery / Logistics",
-            "capabilities": [
-                "Shipment planning and routing workflows",
-                "Real-time package status and exception handling",
-                "Proof-of-delivery and partner integrations",
-            ],
-            "suggestions": [
-                "Track route and status transitions as immutable events.",
-                "Build SLA alerts for delayed or failed fulfillment stages.",
-            ],
-        }},
-    ),
-    (
-        ["saas", "b2b", "multi-tenant", "tenant"],
-        {{
-            "label": "B2B SaaS",
-            "capabilities": [
-                "Multi-tenant data isolation and tenant configuration",
-                "Subscription/billing and feature entitlements",
-                "Admin controls, audit logs, and SSO",
-            ],
-            "suggestions": [
-                "Enforce tenant scoping in every query and API boundary.",
-                "Model feature flags/plan entitlements as first-class policies.",
-            ],
-        }},
-    ),
-    (
-        ["video", "streaming", "ott", "media"],
-        {{
-            "label": "Media / Streaming",
-            "capabilities": [
-                "Content ingestion/transcoding pipeline",
-                "Playback sessions, recommendations, and watch state",
-                "DRM/access control and CDN delivery strategy",
-            ],
-            "suggestions": [
-                "Use async job orchestration for media processing stages.",
-                "Track QoE metrics (startup time, buffering, failure rate).",
-            ],
-        }},
-    ),
-    (
-        ["realtime", "real-time", "collaboration", "whiteboard", "doc"],
-        {{
-            "label": "Realtime Collaboration",
-            "capabilities": [
-                "Concurrent editing/session presence",
-                "Conflict resolution and state synchronization",
-                "Permissions and activity history",
-            ],
-            "suggestions": [
-                "Use CRDT/OT-inspired models for concurrent edits.",
-                "Persist operation logs for replay and debugging.",
-            ],
-        }},
-    ),
-    (
-        ["health", "clinic", "ehr", "emr", "telemedicine"],
-        {{
-            "label": "Health Tech",
-            "capabilities": [
-                "Patient/provider workflows and scheduling",
-                "Clinical records and consent management",
-                "Secure messaging and compliance audit trails",
-            ],
-            "suggestions": [
-                "Apply strict data minimization, encryption, and retention controls.",
-                "Enforce explicit access auditing for sensitive record access.",
-            ],
-        }},
-    ),
-    (
-        ["edtech", "learning", "lms", "course", "quiz"],
-        {{
-            "label": "EdTech",
-            "capabilities": [
-                "Course/content organization and learner progress tracking",
-                "Assessments, submissions, and grading workflows",
-                "Instructor dashboards and feedback loops",
-            ],
-            "suggestions": [
-                "Model learner progress as resumable state machines.",
-                "Add anti-cheating and assessment integrity checks where needed.",
-            ],
-        }},
-    ),
-    (
-        ["job", "recruit", "ats", "hiring", "hr"],
-        {{
-            "label": "Recruitment / HR",
-            "capabilities": [
-                "Job posting and candidate pipeline management",
-                "Interview scheduling and feedback workflows",
-                "Role-based access and confidential note handling",
-            ],
-            "suggestions": [
-                "Use pipeline stage transitions with explicit audit events.",
-                "Enforce strict visibility rules for candidate data.",
-            ],
-        }},
-    ),
-    (
-        ["iot", "device", "sensor", "telemetry", "edge"],
-        {{
-            "label": "IoT Platform",
-            "capabilities": [
-                "Device provisioning and identity lifecycle",
-                "Telemetry ingestion, alerting, and dashboards",
-                "Firmware rollout and remote command workflows",
-            ],
-            "suggestions": [
-                "Treat device identity/cert rotation as core security workflows.",
-                "Use partitioned ingestion and backpressure control for burst traffic.",
-            ],
-        }},
-    ),
-    (
-        ["finops", "billing", "invoice", "subscription", "metering"],
-        {{
-            "label": "Billing / FinOps",
-            "capabilities": [
-                "Usage metering and pricing policy engine",
-                "Invoice generation and payment reconciliation",
-                "Credit adjustments and dispute handling",
-            ],
-            "suggestions": [
-                "Separate rating, billing, and invoicing into distinct services.",
-                "Version pricing rules to keep historical invoices reproducible.",
-            ],
-        }},
-    ),
-    (
-        ["gaming", "game", "esports", "leaderboard"],
-        {{
-            "label": "Gaming",
-            "capabilities": [
-                "Player progression and achievements",
-                "Matchmaking and session lifecycle",
-                "Leaderboards, anti-cheat, and moderation",
-            ],
-            "suggestions": [
-                "Design anti-abuse and anti-cheat signals early.",
-                "Use event sourcing for progression and reward reconciliation.",
-            ],
-        }},
-    ),
-    (
-        ["travel", "booking-engine", "hotel", "flight", "trip"],
-        {{
-            "label": "Travel",
-            "capabilities": [
-                "Availability/pricing search and booking flows",
-                "Reservation lifecycle and cancellation policies",
-                "Supplier integrations and itinerary management",
-            ],
-            "suggestions": [
-                "Treat booking state transitions as idempotent workflows.",
-                "Implement supplier retry/compensation for partial failures.",
-            ],
-        }},
-    ),
-    (
-        ["legal", "contract", "case", "compliance-ops"],
-        {{
-            "label": "Legal Tech",
-            "capabilities": [
-                "Document lifecycle and clause extraction",
-                "Case/matter workflows and deadline tracking",
-                "Access controls and evidentiary audit logs",
-            ],
-            "suggestions": [
-                "Track document lineage and immutable review history.",
-                "Enforce fine-grained permissions for privileged content.",
-            ],
-        }},
-    ),
-    (
-        ["gov", "government", "public-sector", "citizen"],
-        {{
-            "label": "GovTech",
-            "capabilities": [
-                "Citizen service workflows and case handling",
-                "Identity verification and role-bound approvals",
-                "Records retention and transparency reporting",
-            ],
-            "suggestions": [
-                "Model approval chains explicitly with audit evidence.",
-                "Apply strict data retention and redaction controls.",
-            ],
-        }},
-    ),
-    (
-        ["adtech", "ads", "campaign", "attribution", "marketing"],
-        {{
-            "label": "AdTech",
-            "capabilities": [
-                "Campaign management and targeting controls",
-                "Attribution and conversion measurement pipelines",
-                "Budget pacing and fraud detection",
-            ],
-            "suggestions": [
-                "Separate serving, measurement, and billing pipelines.",
-                "Enforce consent-aware tracking and privacy controls.",
-            ],
-        }},
-    ),
-]
+INTENT_KEYWORD_BLUEPRINTS = {intent_keyword_blueprints_literal}
 
 COMPLIANCE_PACKS = {{
     "pci-dss": {{
@@ -1177,6 +636,62 @@ def parse_compliance_input(raw: str) -> list[str]:
         if mapped:
             items.append(mapped)
     return merge_unique([], items)
+
+
+def parse_csv_items(raw: str) -> list[str]:
+    if not raw:
+        return []
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def normalize_custom_compliance_rules(raw_rules: list[dict] | None) -> list[dict]:
+    normalized = []
+    for rule in raw_rules or []:
+        if not isinstance(rule, dict):
+            continue
+        raw_key = str(rule.get("key") or rule.get("name") or "").strip()
+        if not raw_key:
+            continue
+        checks = [str(item).strip() for item in rule.get("checks", []) if str(item).strip()]
+        normalized.append(
+            {{
+                "key": slugify_intent_key(raw_key),
+                "name": str(rule.get("name") or raw_key).strip(),
+                "checks": checks,
+            }}
+        )
+    return normalized
+
+
+def normalize_custom_feature_templates(raw_templates: list[dict] | None) -> list[dict]:
+    templates = []
+    for item in raw_templates or []:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "").strip()
+        template = str(item.get("template") or "").strip()
+        if not name or not template:
+            continue
+        templates.append({{"name": sanitize_feature_name(name), "template": template}})
+    return templates
+
+
+def load_custom_config(path_value: str | None) -> dict:
+    if not path_value:
+        return {{}}
+    config_path = Path(path_value).expanduser()
+    if not config_path.exists() or not config_path.is_file():
+        print(f"Custom config not found: {{config_path}}. Skipping.")
+        return {{}}
+    try:
+        payload = json.loads(config_path.read_text(encoding="utf-8"))
+    except Exception:
+        print(f"Invalid custom config JSON: {{config_path}}. Skipping.")
+        return {{}}
+    if not isinstance(payload, dict):
+        print(f"Custom config must be a JSON object: {{config_path}}. Skipping.")
+        return {{}}
+    return payload
 
 
 def detect_project_type(project_dir: Path) -> str:
@@ -1409,6 +924,8 @@ def ask_new_project_details() -> dict:
     print("Intent ranking is automatic when multiple domains are present (e.g. ride-booking ecommerce).")
 
     os_value = input("Target OS (macos/linux/windows, default auto): ").strip().lower() or "auto"
+    locale = input("Locale for generated docs (en/es/fr, default en): ").strip().lower() or "en"
+    compliance_region = input("Compliance region variant (optional: us/eu/apac/latam): ").strip().lower()
     preset = input("Stack preset (optional, press Enter to skip): ").strip().lower()
     app_intent_input = (
         input(
@@ -1425,6 +942,8 @@ def ask_new_project_details() -> dict:
     fw_raw = input("Frameworks (comma separated, e.g. React,FastAPI): ").strip()
     test_raw = input("Testing tools (comma separated, e.g. vitest,pytest): ").strip()
     lint_raw = input("Lint/format tools (comma separated, e.g. eslint,prettier,ruff): ").strip()
+    custom_frameworks_raw = input("Custom frameworks (optional comma separated, e.g. InternalSDK,GraphQL Mesh): ").strip()
+    custom_config_path = input("Custom config JSON path (optional, includes custom compliance rules/templates): ").strip()
     
     # Ask about compliance level
     print("\\n" + "="*70)
@@ -1474,6 +993,17 @@ def ask_new_project_details() -> dict:
     selected_compliance = parse_compliance_input(compliance_raw)
     compliance_packs = resolve_compliance_packs(app_intent_display, selected_compliance)
 
+    custom_config = load_custom_config(custom_config_path)
+    custom_frameworks = parse_csv_items(custom_frameworks_raw)
+    config_custom_frameworks = custom_config.get("custom_frameworks")
+    if isinstance(config_custom_frameworks, list):
+        config_framework_items = [str(item).strip() for item in config_custom_frameworks if str(item).strip()]
+    else:
+        config_framework_items = parse_csv_items(str(config_custom_frameworks or ""))
+    custom_frameworks = merge_unique(custom_frameworks, config_framework_items)
+    custom_compliance_rules = normalize_custom_compliance_rules(custom_config.get("custom_compliance_rules"))
+    custom_feature_templates = normalize_custom_feature_templates(custom_config.get("custom_feature_templates"))
+
     suggestions = []
     suggestions.extend(preset_data.get("suggestions", []))
     suggestions.extend(app_data.get("suggestions", []))
@@ -1517,15 +1047,20 @@ def ask_new_project_details() -> dict:
 
     return {{
         "target_os": os_value,
+        "locale": locale,
+        "compliance_region": compliance_region,
         "preset": preset,
         "app_intent": app_intent,
         "app_intent_input": app_intent_display,
         "agents": agents,
         "languages": languages,
         "frameworks": frameworks,
+        "custom_frameworks": custom_frameworks,
         "tests": tests,
         "linting": linting,
         "compliance_keys": [pack["key"] for pack in compliance_packs],
+        "custom_compliance_rules": custom_compliance_rules,
+        "custom_feature_templates": custom_feature_templates,
         "compliance_level": compliance_level,
         "suggestions": suggestions,
     }}
@@ -1887,32 +1422,54 @@ def resolve_app_blueprint(app_intent_input: str | None, stack: dict | None = Non
 def build_common_context(project_type: str, stack: dict, new_details: dict | None, generated_at: str) -> dict:
     agents = list(DEFAULT_AGENTS)
     target_os = GENERATOR_TARGET_OS if GENERATOR_TARGET_OS != "auto" else "auto"
+    locale = "en"
+    compliance_region = ""
     app_intent_input = "general-app"
     compliance_keys = []
     compliance_level = 1
+    custom_frameworks = []
+    custom_compliance_rules = []
+    custom_feature_templates = []
 
     if new_details:
         agents = new_details.get("agents") or agents
         target_os = new_details.get("target_os") or target_os
+        locale = (new_details.get("locale") or locale).strip().lower()
+        compliance_region = (new_details.get("compliance_region") or compliance_region).strip().lower()
         app_intent_input = new_details.get("app_intent_input") or new_details.get("app_intent") or app_intent_input
         compliance_keys = new_details.get("compliance_keys") or []
         compliance_level = new_details.get("compliance_level", 1)
+        custom_frameworks = new_details.get("custom_frameworks") or []
+        custom_compliance_rules = new_details.get("custom_compliance_rules") or []
+        custom_feature_templates = new_details.get("custom_feature_templates") or []
 
-    app_intent, app_intent_display, app_blueprint = resolve_app_blueprint(app_intent_input, stack)
+    effective_stack = dict(stack)
+    effective_stack["frameworks"] = sorted(
+        set((stack.get("frameworks") or []) + custom_frameworks)
+    )
+
+    app_intent, app_intent_display, app_blueprint = resolve_app_blueprint(app_intent_input, effective_stack)
     compliance_packs = resolve_compliance_packs(app_intent_display, compliance_keys)
-    package_guidance = resolve_package_guidance(stack)
+    if custom_compliance_rules:
+        compliance_packs.extend(custom_compliance_rules)
+    package_guidance = resolve_package_guidance(effective_stack)
 
     return {{
         "project_type": project_type,
         "target_os": target_os,
+        "locale": locale,
+        "compliance_region": compliance_region,
         "app_intent": app_intent,
         "app_intent_input": app_intent_display,
         "app_blueprint": app_blueprint,
         "compliance_packs": compliance_packs,
         "compliance_level": compliance_level,
+        "custom_frameworks": custom_frameworks,
+        "custom_compliance_rules": custom_compliance_rules,
+        "custom_feature_templates": custom_feature_templates,
         "package_guidance": package_guidance,
         "agents": agents,
-        "stack": stack,
+        "stack": effective_stack,
         "new_details": new_details or {{}},
         "generated_at": generated_at,
     }}
@@ -2254,18 +1811,65 @@ related:
     }}
 
     feature_names = detect_feature_names(project_dir)
-    feature_files, specs_memory_index = build_feature_spec_files(feature_names)
+    feature_files, specs_memory_index = build_feature_spec_files(
+        feature_names, locale=ctx.get("locale", "en")
+    )
     common_files[".specs/memory.md"] = specs_memory_index
     common_files.update(feature_files)
+
+    custom_feature_templates = ctx.get("custom_feature_templates", []) or []
+    for template in custom_feature_templates:
+        template_name = sanitize_feature_name(str(template.get("name") or "custom-feature"))
+        template_body = str(template.get("template") or "").strip()
+        if not template_body:
+            continue
+        common_files[f".specs/features/{{template_name}}/spec.md"] = template_body
+
+    custom_frameworks = ctx.get("custom_frameworks", []) or []
+    custom_compliance_rules = ctx.get("custom_compliance_rules", []) or []
+    if custom_frameworks or custom_compliance_rules or custom_feature_templates:
+        framework_lines = "\\n".join(f"- {{item}}" for item in custom_frameworks) if custom_frameworks else "- (none)"
+        compliance_lines = []
+        for rule in custom_compliance_rules:
+            compliance_lines.append(f"- {{rule.get('name', rule.get('key', 'custom-rule'))}} ({{rule.get('key', 'custom-rule')}})")
+            for check in rule.get("checks", []):
+                compliance_lines.append(f"  - {{check}}")
+        compliance_text = "\\n".join(compliance_lines) if compliance_lines else "- (none)"
+        template_lines = (
+            "\\n".join(f"- .specs/features/{{sanitize_feature_name(str(item.get('name') or 'custom-feature'))}}/spec.md" for item in custom_feature_templates)
+            if custom_feature_templates
+            else "- (none)"
+        )
+        common_files[".ai-docs/CUSTOM-AGENT-CONFIG.md"] = f"""# Custom Agent Configuration
+
+## Custom Frameworks
+{{framework_lines}}
+
+## Custom Compliance Rules
+{{compliance_text}}
+
+## Custom Feature Templates
+{{template_lines}}
+"""
 
     # Add Level 2 compliance scanning rules if configured
     compliance_level = ctx.get("compliance_level", 1)
     compliance_packs = ctx.get("compliance_packs", [])
+    locale = ctx.get("locale", "en")
+    compliance_region = ctx.get("compliance_region", "")
     if compliance_level >= 2 and compliance_packs:
-        level_2_files = generate_level_2_compliance_scanning(compliance_packs)
+        level_2_files = generate_level_2_compliance_scanning(
+            compliance_packs,
+            locale=locale,
+            compliance_region=compliance_region,
+        )
         common_files.update(level_2_files)
     if compliance_level >= 3 and compliance_packs:
-        level_3_files = generate_level_3_compliance_patterns(compliance_packs)
+        level_3_files = generate_level_3_compliance_patterns(
+            compliance_packs,
+            locale=locale,
+            compliance_region=compliance_region,
+        )
         common_files.update(level_3_files)
 
     agent_files = generate_agent_specific_docs(ctx)
@@ -2344,6 +1948,23 @@ def parse_args() -> argparse.Namespace:
         "--compliance-level",
         help="Optional compliance documentation level for new-project mode (0=skip, 1=checklists, 2=scanning, 3=patterns).",
     )
+    parser.add_argument(
+        "--locale",
+        default="en",
+        help="Locale for generated docs (en/es/fr).",
+    )
+    parser.add_argument(
+        "--compliance-region",
+        help="Optional compliance regional variant (us/eu/apac/latam).",
+    )
+    parser.add_argument(
+        "--custom-frameworks",
+        help="Optional comma-separated custom frameworks for new-project mode.",
+    )
+    parser.add_argument(
+        "--custom-config",
+        help="Optional JSON file path defining custom_frameworks, custom_compliance_rules, and custom_feature_templates.",
+    )
     parser.add_argument("--list-stack-presets", action="store_true", help="Print available stack presets and exit.")
     parser.add_argument("--list-intents", action="store_true", help="Print starter and keyword-mapped intent profiles and exit.")
     parser.add_argument("--list-compliance", action="store_true", help="Print available compliance packs and exit.")
@@ -2375,9 +1996,27 @@ def main() -> None:
 
     new_details = None
     if mode == "new":
-        if args.non_interactive or args.intent or args.compliance:
+        if args.non_interactive or args.intent or args.compliance or args.custom_frameworks or args.custom_config:
             intent_input = (args.intent or "general-app").strip().lower()
             compliance_keys = parse_compliance_input((args.compliance or "").strip())
+            custom_config = load_custom_config((args.custom_config or "").strip())
+
+            config_custom_frameworks = custom_config.get("custom_frameworks")
+            if isinstance(config_custom_frameworks, list):
+                config_framework_items = [str(item).strip() for item in config_custom_frameworks if str(item).strip()]
+            else:
+                config_framework_items = parse_csv_items(str(config_custom_frameworks or ""))
+
+            custom_frameworks = merge_unique(
+                parse_csv_items((args.custom_frameworks or "").strip()),
+                config_framework_items,
+            )
+            custom_compliance_rules = normalize_custom_compliance_rules(
+                custom_config.get("custom_compliance_rules")
+            )
+            custom_feature_templates = normalize_custom_feature_templates(
+                custom_config.get("custom_feature_templates")
+            )
             
             # Parse compliance level
             compliance_level = 1  # default
@@ -2391,6 +2030,8 @@ def main() -> None:
             
             new_details = {{
                 "target_os": GENERATOR_TARGET_OS if GENERATOR_TARGET_OS != "auto" else "auto",
+                "locale": (args.locale or "en").strip().lower() or "en",
+                "compliance_region": (args.compliance_region or "").strip().lower(),
                 "app_intent": slugify_intent_key(intent_input),
                 "app_intent_input": intent_input,
                 "compliance_keys": compliance_keys,
@@ -2398,6 +2039,9 @@ def main() -> None:
                 "agents": list(DEFAULT_AGENTS),
                 "languages": [],
                 "frameworks": [],
+                "custom_frameworks": custom_frameworks,
+                "custom_compliance_rules": custom_compliance_rules,
+                "custom_feature_templates": custom_feature_templates,
                 "tests": [],
                 "linting": [],
                 "suggestions": [],
@@ -2411,6 +2055,10 @@ def main() -> None:
             stack["languages"] = sorted(set(stack.get("languages", []) + new_details["languages"]))
         if new_details.get("frameworks"):
             stack["frameworks"] = sorted(set(stack.get("frameworks", []) + new_details["frameworks"]))
+        if new_details.get("custom_frameworks"):
+            stack["frameworks"] = sorted(
+                set(stack.get("frameworks", []) + new_details["custom_frameworks"])
+            )
 
     generated_at = resolve_generated_at(project_dir, args.check)
     ctx = build_common_context(mode, stack, new_details, generated_at)
