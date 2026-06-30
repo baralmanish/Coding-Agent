@@ -214,7 +214,9 @@ def run_case(bootstrap: str, case: dict) -> tuple[bool, dict | None]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run feature matrix tests for bootstrap")
+    parser = argparse.ArgumentParser(
+        description="Run feature matrix tests for bootstrap"
+    )
     parser.add_argument(
         "--bootstrap",
         default="./ai-docs-bootstrap",
