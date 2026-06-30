@@ -7,8 +7,10 @@ from .file_io import (
     normalize_text,
     append_changelog,
     load_previous_metadata,
+    read_json_file,
+    write_metadata,
+    gather_existing_markdown_context,
 )
-from .file_ops import gather_existing_markdown_context, read_json_file, write_metadata
 from .text import keyword_confidence_score, merge_unique, slugify_intent_key
 
 __all__ = [

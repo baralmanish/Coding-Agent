@@ -1,0 +1,28 @@
+{
+  "timestamp_utc": "2026-06-30T17:33:47.734723+00:00",
+  "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]",
+  "iterations": 15,
+  "warmup": 3,
+  "benchmarks": {
+    "build_bootstrap_script_ms": {
+      "iterations": 15,
+      "warmup": 3,
+      "min_ms": 0.4462910001166165,
+      "max_ms": 0.6125419986346969,
+      "mean_ms": 0.4921915327334621,
+      "p95_ms": 0.5689589997928124
+    },
+    "generate_files_new_project_ms": {
+      "iterations": 15,
+      "warmup": 3,
+      "min_ms": 6.985708998399787,
+      "max_ms": 84.91920799860964,
+      "mean_ms": 15.448750066449671,
+      "p95_ms": 17.7019160000782
+    }
+  },
+  "profiles": {
+    "build_bootstrap_script_top": "         3977 function calls in 0.001 seconds\n\n   Ordered by: cumulative time\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n        1    0.000    0.000    0.001    0.001 benchmark_performance.py:162(<lambda>)\n        1    0.000    0.000    0.001    0.001 setup-ai-docs.py:350(build_bootstrap_script)\n        1    0.001    0.001    0.001    0.001 textwrap.py:416(dedent)\n     3961    0.000    0.000    0.000    0.000 {method 'isspace' of 'str' objects}\n        1    0.000    0.000    0.000    0.000 {method 'split' of 'str' objects}\n        1    0.000    0.000    0.000    0.000 {method 'join' of 'str' objects}\n        1    0.000    0.000    0.000    0.000 {built-in method builtins.min}\n        1    0.000    0.000    0.000    0.000 {built-in method builtins.max}\n        2    0.000    0.000    0.000    0.000 __init__.py:185(dumps)\n        2    0.000    0.000    0.000    0.000 encoder.py:185(encode)\n        2    0.000    0.000    0.000    0.000 {built-in method _json.encode_basestring_ascii}\n        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}\n        2    0.000    0.000    0.000    0.000 {built-in method builtins.isinstance}\n\n\n",
+    "generate_files_new_project_top": "         4690 function calls (4684 primitive calls) in 0.008 seconds\n\n   Ordered by: cumulative time\n   List reduced from 166 to 20 due to restriction <20>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n        1    0.000    0.000    0.008    0.008 benchmark_performance.py:152(generate_once)\n        1    0.000    0.000    0.005    0.005 ai-docs-bootstrap:1567(generate_files)\n       30    0.000    0.000    0.004    0.000 <string>:924(write_text)\n       32    0.000    0.000    0.003    0.000 __init__.py:799(write_text)\n        1    0.000    0.000    0.002    0.002 tempfile.py:969(__exit__)\n        1    0.000    0.000    0.002    0.002 tempfile.py:973(cleanup)\n        1    0.000    0.000    0.002    0.002 tempfile.py:915(_rmtree)\n        1    0.000    0.000    0.002    0.002 shutil.py:810(rmtree)\n        1    0.000    0.000    0.002    0.002 shutil.py:714(_rmtree_safe_fd)\n       27    0.000    0.000    0.002    0.000 shutil.py:733(_rmtree_safe_fd_step)\n       32    0.000    0.000    0.002    0.000 __init__.py:763(open)\n       32    0.002    0.000    0.002    0.000 {built-in method _io.open}\n       32    0.001    0.000    0.001    0.000 {built-in method posix.unlink}\n       32    0.001    0.000    0.001    0.000 {method '__exit__' of '_io._IOBase' objects}\n       74    0.000    0.000    0.001    0.000 {built-in method posix.stat}\n       48    0.000    0.000    0.001    0.000 __init__.py:663(exists)\n       31    0.000    0.000    0.001    0.000 <string>:919(ensure_dir)\n    36/32    0.000    0.000    0.001    0.000 __init__.py:1006(mkdir)\n       48    0.000    0.000    0.001    0.000 <frozen genericpath>:16(exists)\n       37    0.001    0.000    0.001    0.000 {built-in method posix.mkdir}\n\n\n"
+  }
+}

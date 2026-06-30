@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import stat
 import textwrap
+from functools import lru_cache
 from pathlib import Path
 
 # Modularized imports from src/
@@ -51,9 +52,9 @@ from src.generators import (
     generate_context_snapshot,
     generate_agent_specific_docs,
     generate_level_2_compliance_scanning,
+    generate_level_3_compliance_patterns,
 )
 from src.utils import (
-    ensure_dir,
     write_text,
     read_text_if_exists,
     normalize_text,
@@ -236,10 +237,9 @@ related:
     return files, index_content
 
 
-def build_bootstrap_script(master_prompt: str, target_os: str) -> str:
-    prompt_literal = json.dumps(master_prompt)
-    target_os_literal = json.dumps(target_os)
-
+@lru_cache(maxsize=1)
+def _prepare_embedded_sources() -> tuple[str, str]:
+    """Prepare escaped utility/generator source blobs for bootstrap embedding."""
     # Read current file to extract utility functions
     current_file = Path(__file__).read_text(encoding="utf-8")
     current_lines = current_file.split("\n")
@@ -343,6 +343,15 @@ def build_bootstrap_script(master_prompt: str, target_os: str) -> str:
     gen_functions_escaped = (
         json.dumps(gen_functions_code) if gen_functions_code else '""'
     )
+
+    return utility_functions_escaped, gen_functions_escaped
+
+
+def build_bootstrap_script(master_prompt: str, target_os: str) -> str:
+    prompt_literal = json.dumps(master_prompt)
+    target_os_literal = json.dumps(target_os)
+    utility_functions_escaped, gen_functions_escaped = _prepare_embedded_sources()
+
     gen_functions_setup = f"""# Embed utility functions
 exec({utility_functions_escaped}, globals())
 # Embed generator functions (core + compliance + file_io)
@@ -2255,6 +2264,9 @@ related:
     if compliance_level >= 2 and compliance_packs:
         level_2_files = generate_level_2_compliance_scanning(compliance_packs)
         common_files.update(level_2_files)
+    if compliance_level >= 3 and compliance_packs:
+        level_3_files = generate_level_3_compliance_patterns(compliance_packs)
+        common_files.update(level_3_files)
 
     agent_files = generate_agent_specific_docs(ctx)
     all_files = dict(common_files)

@@ -12,7 +12,10 @@ from .core import (
     generate_context_snapshot,
     generate_agent_specific_docs,
 )
-from .compliance import generate_level_2_compliance_scanning
+from .compliance import (
+    generate_level_2_compliance_scanning,
+    generate_level_3_compliance_patterns,
+)
 
 __all__ = [
     "generate_agents_md",
@@ -21,4 +24,5 @@ __all__ = [
     "generate_context_snapshot",
     "generate_agent_specific_docs",
     "generate_level_2_compliance_scanning",
+    "generate_level_3_compliance_patterns",
 ]
