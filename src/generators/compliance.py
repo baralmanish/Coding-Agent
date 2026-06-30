@@ -4,6 +4,10 @@ This module contains functions to generate compliance-specific scanning rules
 and validation scripts for each supported framework (PCI-DSS, HIPAA, GDPR, etc.).
 """
 
+from pathlib import Path
+import html
+import re
+
 
 def _localization_tokens(locale: str) -> dict[str, str]:
     lang = (locale or "en").strip().lower()
@@ -627,3 +631,588 @@ incidentctl create --severity high --service customer-data-api --summary "Potent
 """
 
     return _localize_and_apply_region(files, locale, compliance_region)
+
+
+LEVEL3_PATTERN_RULES = {
+    "pci-dss": [
+        {
+            "id": "pci-weak-hash",
+            "title": "Weak hashing algorithm usage",
+            "pattern": r"\b(md5|sha1)\s*\(",
+            "remediation": "Replace weak hashes with SHA-256 or stronger; prefer password_hash/argon2/bcrypt for credentials.",
+            "snippet": "hashlib.sha256(value.encode('utf-8')).hexdigest()",
+            "replacement_map": {
+                "md5(": "sha256(",
+                "sha1(": "sha256(",
+            },
+        },
+        {
+            "id": "pci-raw-sql",
+            "title": "Potential raw SQL string interpolation",
+            "pattern": r"(SELECT|INSERT|UPDATE|DELETE).*(\+|%\s*\()",
+            "remediation": "Use parameterized queries in all data-access paths.",
+            "snippet": "cursor.execute('SELECT * FROM users WHERE id = %s', [user_id])",
+        },
+    ],
+    "hipaa": [
+        {
+            "id": "hipaa-possible-phi-log",
+            "title": "Potential PHI logging",
+            "pattern": r"(logger\.(info|debug|warning)|print\().*(ssn|dob|patient|mrn)",
+            "remediation": "Redact PHI fields before logging and route audit events to controlled sinks.",
+            "snippet": "logger.info(redact_phi(message))",
+        }
+    ],
+    "gdpr": [
+        {
+            "id": "gdpr-marketing-without-consent",
+            "title": "Marketing/profile path without explicit consent check",
+            "pattern": r"(marketing|ads|profile).*(send|process|share)",
+            "remediation": "Gate optional processing behind explicit consent flags.",
+            "snippet": "if user.consent.get('marketing') is True:\n    run_marketing_profile(user)",
+        }
+    ],
+    "soc2": [
+        {
+            "id": "soc2-missing-audit-trail",
+            "title": "Privileged action without explicit audit event",
+            "pattern": r"(delete_user|grant_role|rotate_key|change_config)\s*\(",
+            "remediation": "Emit structured audit events for privileged operations.",
+            "snippet": "audit.log({'event': 'config_changed', 'actor': actor_id, 'resource': resource})",
+        }
+    ],
+    "ccpa": [
+        {
+            "id": "ccpa-share-without-optout",
+            "title": "Data-sharing path may ignore do-not-sell/opt-out",
+            "pattern": r"(share|sell).*(consumer|profile|data)",
+            "remediation": "Enforce opt-out checks before any sale/share path.",
+            "snippet": "if not profile.opt_out_sale_share:\n    share_data(profile)",
+        }
+    ],
+    "iso27001": [
+        {
+            "id": "iso-no-incident-trigger",
+            "title": "Security-sensitive code path without incident/runbook trigger",
+            "pattern": r"(security_breach|data_exposure|critical_alert)",
+            "remediation": "Tie high-severity detections to standardized incident runbook automation.",
+            "snippet": "incidentctl create --severity high --service api --summary 'Potential exposure'",
+        }
+    ],
+}
+
+
+def _iter_source_files(project_dir: Path, max_files: int = 200) -> list[Path]:
+    allowed = {".py", ".js", ".ts", ".tsx", ".go", ".java", ".rb", ".php"}
+    ignored = {".git", "node_modules", "dist", "build", "__pycache__", ".venv", "venv"}
+    files: list[Path] = []
+
+    for path in project_dir.rglob("*"):
+        if len(files) >= max_files:
+            break
+        if any(part in ignored for part in path.parts):
+            continue
+        if not path.is_file() or path.suffix.lower() not in allowed:
+            continue
+        files.append(path)
+
+    return files
+
+
+def generate_level_3_pattern_injection_report(
+    project_dir: Path,
+    compliance_packs: list[dict],
+    max_findings_per_rule: int = 5,
+) -> str | None:
+    """Analyze project source for compliance risk patterns and propose remediation snippets."""
+    findings = _collect_pattern_findings(
+        project_dir,
+        compliance_packs,
+        max_findings_per_rule,
+    )
+    if not findings:
+        return None
+
+    lines = [
+        "# Level 3 Code Pattern Injection Report",
+        "",
+        "Detected potential compliance risk patterns in source code and suggested remediation snippets.",
+        "",
+        "## Findings",
+    ]
+
+    for index, item in enumerate(findings, start=1):
+        rel_path = str(item["path"].relative_to(project_dir))
+        lines.extend(
+            [
+                f"### {index}. {item['framework'].upper()} - {item['title']}",
+                f"- Rule: `{item['rule_id']}`",
+                f"- Location: `{rel_path}:{item['line_no']}`",
+                f"- Matched line: `{item['line']}`",
+                f"- Remediation: {item['remediation']}",
+                "- Suggested snippet:",
+                "```",
+                item["snippet"],
+                "```",
+                "",
+            ]
+        )
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _collect_pattern_findings(
+    project_dir: Path,
+    compliance_packs: list[dict],
+    max_findings_per_rule: int,
+) -> list[dict]:
+    source_files = _iter_source_files(project_dir)
+    if not source_files:
+        return []
+
+    findings: list[dict] = []
+    selected_keys = [pack.get("key") for pack in compliance_packs if pack.get("key")]
+
+    for key in selected_keys:
+        rules = LEVEL3_PATTERN_RULES.get(key, [])
+        for rule in rules:
+            compiled = re.compile(rule["pattern"], re.IGNORECASE)
+            match_count = 0
+            for src in source_files:
+                if match_count >= max_findings_per_rule:
+                    break
+                try:
+                    content = src.read_text(encoding="utf-8", errors="ignore")
+                except Exception:
+                    continue
+                for line_no, line in enumerate(content.splitlines(), start=1):
+                    if compiled.search(line):
+                        findings.append(
+                            {
+                                "framework": key,
+                                "rule_id": rule["id"],
+                                "title": rule["title"],
+                                "path": src,
+                                "line_no": line_no,
+                                "line": line.strip()[:160],
+                                "remediation": rule["remediation"],
+                                "snippet": rule["snippet"],
+                            }
+                        )
+                        match_count += 1
+                        break
+
+    return findings
+
+
+def generate_ai_assisted_compliance_analysis(
+    project_dir: Path,
+    compliance_packs: list[dict],
+) -> str | None:
+    """Generate heuristic AI-style risk analysis and architecture recommendations."""
+    findings = _collect_pattern_findings(project_dir, compliance_packs, 10)
+    if not findings:
+        return None
+
+    severity_by_framework = {
+        "pci-dss": 9,
+        "hipaa": 9,
+        "gdpr": 8,
+        "soc2": 7,
+        "ccpa": 7,
+        "iso27001": 6,
+    }
+    recommendation_by_framework = {
+        "pci-dss": "Isolate payment handling into a dedicated service boundary with strict tokenization and parameterized DB access.",
+        "hipaa": "Introduce a centralized privacy layer for PHI redaction and audited access policies.",
+        "gdpr": "Add a consent-orchestration module and enforce purpose-scoped data views.",
+        "soc2": "Route privileged actions through a policy gateway that emits immutable audit events.",
+        "ccpa": "Implement a consumer-preference service that gates all sale/share pathways.",
+        "iso27001": "Adopt a control-ownership and incident-workflow automation plane tied to runtime signals.",
+    }
+
+    framework_counts: dict[str, int] = {}
+    for item in findings:
+        fw = item["framework"]
+        framework_counts[fw] = framework_counts.get(fw, 0) + 1
+
+    weighted = 0
+    for fw, count in framework_counts.items():
+        weighted += severity_by_framework.get(fw, 5) * count
+    risk_score = min(100, weighted)
+
+    prioritized_frameworks = sorted(
+        framework_counts.keys(),
+        key=lambda fw: (
+            -framework_counts.get(fw, 0),
+            -severity_by_framework.get(fw, 5),
+            fw,
+        ),
+    )
+
+    lines = [
+        "# AI-Assisted Compliance Analysis",
+        "",
+        "Heuristic risk analysis generated from detected compliance patterns and rule matches.",
+        "",
+        "## Risk Summary",
+        f"- Aggregate risk score: {risk_score}/100",
+        f"- Total findings: {len(findings)}",
+        "",
+        "## Framework Risk Breakdown",
+    ]
+
+    for fw in prioritized_frameworks:
+        lines.append(
+            f"- {fw.upper()}: {framework_counts[fw]} finding(s), baseline severity {severity_by_framework.get(fw, 5)}/10"
+        )
+
+    lines.extend(["", "## Recommended Architecture Changes"])
+    for fw in prioritized_frameworks:
+        lines.append(
+            f"- {fw.upper()}: {recommendation_by_framework.get(fw, 'Harden service boundaries and observability around compliance-critical paths.')}"
+        )
+
+    lines.extend(["", "## Top Risk Signals"])
+    for item in findings[:8]:
+        rel_path = str(item["path"].relative_to(project_dir))
+        lines.append(
+            f"- {item['framework'].upper()} `{item['rule_id']}` at `{rel_path}:{item['line_no']}` -> {item['remediation']}"
+        )
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def generate_compliance_dashboard_html(
+    project_dir: Path,
+    compliance_packs: list[dict],
+    planned_output_paths: list[str] | None = None,
+) -> str:
+    """Generate a static compliance dashboard for status, progress, and scan insights."""
+    findings = _collect_pattern_findings(project_dir, compliance_packs, 20)
+    frameworks = [str(pack.get("key") or "").strip() for pack in compliance_packs]
+    frameworks = [fw for fw in frameworks if fw]
+
+    planned_paths = planned_output_paths or []
+    planned_compliance = [
+        p for p in planned_paths if p.startswith(".specs/compliance/")
+    ]
+    existing_compliance_files = list(
+        (project_dir / ".specs" / "compliance").rglob("*.md")
+    )
+    generated_count = len(existing_compliance_files)
+    planned_count = max(len(planned_compliance), generated_count)
+    progress_pct = (
+        100
+        if planned_count == 0
+        else min(100, int((generated_count / planned_count) * 100))
+    )
+
+    framework_rows = []
+    for fw in frameworks:
+        fw_findings = [item for item in findings if item["framework"] == fw]
+        status = "At Risk" if fw_findings else "No Signals"
+        sev = "high" if len(fw_findings) >= 2 else ("medium" if fw_findings else "low")
+        framework_rows.append(
+            f"<tr><td>{html.escape(fw.upper())}</td><td>{status}</td><td>{sev}</td><td>{len(fw_findings)}</td></tr>"
+        )
+
+    finding_rows = []
+    for item in findings[:25]:
+        rel = str(item["path"].relative_to(project_dir))
+        finding_rows.append(
+            "<tr>"
+            + f"<td>{html.escape(item['framework'].upper())}</td>"
+            + f"<td>{html.escape(item['rule_id'])}</td>"
+            + f"<td>{html.escape(rel)}:{item['line_no']}</td>"
+            + f"<td>{html.escape(item['line'])}</td>"
+            + "</tr>"
+        )
+
+    if not finding_rows:
+        finding_rows.append(
+            "<tr><td colspan='4'>No scan findings detected yet.</td></tr>"
+        )
+
+    framework_table = (
+        "\n".join(framework_rows)
+        if framework_rows
+        else "<tr><td colspan='4'>No compliance frameworks selected.</td></tr>"
+    )
+    finding_table = "\n".join(finding_rows)
+
+    return f"""<!doctype html>
+<html lang=\"en\">
+<head>
+    <meta charset=\"utf-8\" />
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+    <title>Compliance Dashboard</title>
+    <style>
+        :root {{
+            --bg: #f4f7f5;
+            --ink: #0f2a22;
+            --accent: #0f766e;
+            --panel: #ffffff;
+            --warn: #b45309;
+            --risk: #b91c1c;
+        }}
+        body {{ margin: 0; font-family: "Avenir Next", "Segoe UI", sans-serif; background: radial-gradient(circle at 80% 10%, #d8f5ef 0%, var(--bg) 48%); color: var(--ink); }}
+        .wrap {{ max-width: 1100px; margin: 0 auto; padding: 24px; }}
+        .hero {{ background: linear-gradient(120deg, #0f766e, #115e59); color: #fff; padding: 22px; border-radius: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.12); }}
+        .meta {{ display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 14px; margin-top: 18px; }}
+        .card {{ background: var(--panel); border-radius: 14px; padding: 14px; box-shadow: 0 8px 22px rgba(0,0,0,.06); }}
+        .bar {{ height: 12px; border-radius: 999px; background: #d1fae5; overflow: hidden; }}
+        .bar > span {{ display:block; height: 100%; width: {progress_pct}%; background: linear-gradient(90deg, #14b8a6, #0f766e); }}
+        table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+        th, td {{ text-align: left; padding: 9px 10px; border-bottom: 1px solid #e5e7eb; font-size: 14px; }}
+        th {{ background: #f8fafc; }}
+        .pulse {{ width: 10px; height: 10px; border-radius: 50%; background: #22c55e; display: inline-block; animation: pulse 1.6s infinite; }}
+        @keyframes pulse {{ 0% {{ transform: scale(1); opacity: 1; }} 100% {{ transform: scale(1.9); opacity: .15; }} }}
+    </style>
+</head>
+<body>
+    <div class=\"wrap\">
+        <section class=\"hero\">
+            <h1>Compliance Dashboard</h1>
+            <p>Status visualization and scan telemetry for selected frameworks.</p>
+            <p>Live scan status: <span class=\"pulse\"></span> <strong id=\"scan-state\">running</strong> · Last refresh <strong id=\"tick\">now</strong></p>
+        </section>
+
+        <section class=\"meta\">
+            <article class=\"card\">
+                <h3>Frameworks</h3>
+                <p>{len(frameworks)} selected</p>
+            </article>
+            <article class=\"card\">
+                <h3>Findings</h3>
+                <p>{len(findings)} active signals</p>
+            </article>
+            <article class=\"card\">
+                <h3>File Generation Progress</h3>
+                <div class=\"bar\"><span></span></div>
+                <p>{generated_count}/{planned_count} compliance files ({progress_pct}%)</p>
+            </article>
+        </section>
+
+        <section class=\"card\" style=\"margin-top: 16px;\">
+            <h3>Framework Status</h3>
+            <table>
+                <thead><tr><th>Framework</th><th>Status</th><th>Severity</th><th>Findings</th></tr></thead>
+                <tbody>
+                    {framework_table}
+                </tbody>
+            </table>
+        </section>
+
+        <section class=\"card\" style=\"margin-top: 16px;\">
+            <h3>Real-Time Scanning Results</h3>
+            <table>
+                <thead><tr><th>Framework</th><th>Rule</th><th>Location</th><th>Matched Signal</th></tr></thead>
+                <tbody>
+                    {finding_table}
+                </tbody>
+            </table>
+        </section>
+    </div>
+    <script>
+        const tick = document.getElementById('tick');
+        const scanState = document.getElementById('scan-state');
+        function refreshClock() {{
+            tick.textContent = new Date().toLocaleTimeString();
+        }}
+        setInterval(refreshClock, 1000);
+        setInterval(() => {{
+            scanState.textContent = scanState.textContent === 'running' ? 'streaming' : 'running';
+        }}, 2400);
+        refreshClock();
+    </script>
+</body>
+</html>
+"""
+
+
+def _compute_patch_preview(
+    line: str, replacement_map: dict[str, str] | None
+) -> tuple[str, bool]:
+    if not replacement_map:
+        return line, False
+    updated = line
+    changed = False
+    for source, target in replacement_map.items():
+        if source in updated:
+            updated = updated.replace(source, target)
+            changed = True
+    return updated, changed
+
+
+def _collect_patch_candidates(
+    project_dir: Path,
+    compliance_packs: list[dict],
+    max_candidates_per_rule: int,
+) -> list[dict]:
+    source_files = _iter_source_files(project_dir)
+    if not source_files:
+        return []
+
+    selected_keys = [pack.get("key") for pack in compliance_packs if pack.get("key")]
+    candidates: list[dict] = []
+
+    for key in selected_keys:
+        rules = LEVEL3_PATTERN_RULES.get(key, [])
+        for rule in rules:
+            compiled = re.compile(rule["pattern"], re.IGNORECASE)
+            candidate_count = 0
+            for src in source_files:
+                if candidate_count >= max_candidates_per_rule:
+                    break
+                try:
+                    lines = src.read_text(
+                        encoding="utf-8", errors="ignore"
+                    ).splitlines()
+                except Exception:
+                    continue
+
+                for line_no, raw_line in enumerate(lines, start=1):
+                    if not compiled.search(raw_line):
+                        continue
+                    after_line, changed = _compute_patch_preview(
+                        raw_line,
+                        rule.get("replacement_map"),
+                    )
+                    if not changed:
+                        continue
+                    candidates.append(
+                        {
+                            "framework": key,
+                            "rule_id": rule["id"],
+                            "path": src,
+                            "line_no": line_no,
+                            "before": raw_line.rstrip(),
+                            "after": after_line.rstrip(),
+                        }
+                    )
+                    candidate_count += 1
+                    break
+
+    return candidates
+
+
+def generate_level_3_patch_proposals(
+    project_dir: Path,
+    compliance_packs: list[dict],
+    max_proposals_per_rule: int = 3,
+) -> str | None:
+    """Generate safe patch proposals (dry-run) for matched Level 3 compliance patterns."""
+    proposals = _collect_patch_candidates(
+        project_dir,
+        compliance_packs,
+        max_proposals_per_rule,
+    )
+
+    if not proposals:
+        return None
+
+    output = [
+        "# Level 3 Auto-Patch Proposals (Dry-Run)",
+        "",
+        "Proposed non-destructive remediations based on detected compliance patterns.",
+        "Apply manually after review.",
+        "",
+        "## Proposed Patches",
+    ]
+
+    for index, item in enumerate(proposals, start=1):
+        rel_path = str(item["path"].relative_to(project_dir))
+        output.extend(
+            [
+                f"### {index}. {item['framework'].upper()} - {item['rule_id']}",
+                f"- File: `{rel_path}:{item['line_no']}`",
+                "```diff",
+                f"- {item['before']}",
+                f"+ {item['after']}",
+                "```",
+                "",
+            ]
+        )
+
+    return "\n".join(output).rstrip() + "\n"
+
+
+def apply_level_3_patch_proposals(
+    project_dir: Path,
+    compliance_packs: list[dict],
+    max_patches_per_rule: int = 3,
+) -> dict[str, list[dict]]:
+    """Apply auto-patch replacements for candidates that have deterministic mappings."""
+    applied: list[dict] = []
+    candidates = _collect_patch_candidates(
+        project_dir,
+        compliance_packs,
+        max_patches_per_rule,
+    )
+
+    for item in candidates:
+        path = item["path"]
+        line_no = int(item["line_no"])
+        try:
+            lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+        except Exception:
+            continue
+        if line_no < 1 or line_no > len(lines):
+            continue
+        original = lines[line_no - 1]
+        before_clean = str(item["before"]).strip()
+        after_clean = str(item["after"]).strip()
+        if original.strip() != before_clean:
+            continue
+        updated, changed = _compute_patch_preview(
+            original,
+            {before_clean: after_clean},
+        )
+        if not changed or updated == original:
+            continue
+        lines[line_no - 1] = updated
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        applied.append(
+            {
+                "framework": item["framework"],
+                "rule_id": item["rule_id"],
+                "path": path,
+                "line_no": line_no,
+                "before": original.rstrip(),
+                "after": updated.rstrip(),
+            }
+        )
+
+    return {"applied": applied}
+
+
+def generate_level_3_applied_patch_report(
+    project_dir: Path,
+    applied_items: list[dict],
+) -> str | None:
+    if not applied_items:
+        return None
+
+    output = [
+        "# Level 3 Auto-Patch Results",
+        "",
+        "Applied deterministic compliance remediations (explicit apply-mode).",
+        "",
+        "## Applied Changes",
+    ]
+    for index, item in enumerate(applied_items, start=1):
+        rel_path = str(item["path"].relative_to(project_dir))
+        output.extend(
+            [
+                f"### {index}. {item['framework'].upper()} - {item['rule_id']}",
+                f"- File: `{rel_path}:{item['line_no']}`",
+                "```diff",
+                f"- {item['before']}",
+                f"+ {item['after']}",
+                "```",
+                "",
+            ]
+        )
+
+    return "\n".join(output).rstrip() + "\n"

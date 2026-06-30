@@ -1871,6 +1871,51 @@ related:
             compliance_region=compliance_region,
         )
         common_files.update(level_3_files)
+        injection_report = generate_level_3_pattern_injection_report(
+            project_dir,
+            compliance_packs,
+        )
+        if injection_report:
+            common_files[
+                ".specs/compliance/LEVEL3-CODE-PATTERN-INJECTION.md"
+            ] = injection_report
+        ai_analysis = generate_ai_assisted_compliance_analysis(
+            project_dir,
+            compliance_packs,
+        )
+        if ai_analysis:
+            common_files[
+                ".specs/compliance/AI-ASSISTED-COMPLIANCE-ANALYSIS.md"
+            ] = ai_analysis
+        patch_proposals = generate_level_3_patch_proposals(
+            project_dir,
+            compliance_packs,
+        )
+        if patch_proposals:
+            common_files[
+                ".specs/compliance/LEVEL3-AUTO-PATCH-PROPOSALS.md"
+            ] = patch_proposals
+        if ctx.get("apply_auto_patches", False):
+            apply_result = apply_level_3_patch_proposals(
+                project_dir,
+                compliance_packs,
+            )
+            applied_report = generate_level_3_applied_patch_report(
+                project_dir,
+                apply_result.get("applied", []),
+            )
+            if applied_report:
+                common_files[
+                    ".specs/compliance/LEVEL3-AUTO-PATCH-RESULTS.md"
+                ] = applied_report
+        compliance_dashboard = generate_compliance_dashboard_html(
+            project_dir,
+            compliance_packs,
+            planned_output_paths=sorted(common_files.keys()),
+        )
+        common_files[
+            ".specs/compliance/dashboard/index.html"
+        ] = compliance_dashboard
 
     agent_files = generate_agent_specific_docs(ctx)
     all_files = dict(common_files)
@@ -1956,6 +2001,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--compliance-region",
         help="Optional compliance regional variant (us/eu/apac/latam).",
+    )
+    parser.add_argument(
+        "--apply-auto-patches",
+        action="store_true",
+        help="Apply deterministic Level 3 auto-patch remediations (explicit opt-in).",
     )
     parser.add_argument(
         "--custom-frameworks",
@@ -2062,6 +2112,7 @@ def main() -> None:
 
     generated_at = resolve_generated_at(project_dir, args.check)
     ctx = build_common_context(mode, stack, new_details, generated_at)
+    ctx["apply_auto_patches"] = bool(args.apply_auto_patches)
     generated_files, changed_files = generate_files(project_dir, ctx, markdown_context, check_mode=args.check)
 
     if args.check:
