@@ -134,6 +134,25 @@
   - [x] Security review checklist for auto-patch usage
   - [x] Upgrade/migration notes between generator versions
 
+## Phase 8: Modular Features Follow-up
+
+- [ ] **Matrix test automation in CI**
+  - Add a CI job to run feature selection matrix tests on every PR
+  - Publish matrix summary as an artifact for troubleshooting
+  - Fail CI on unsupported-feature validation regressions
+- [ ] **Feature dependency guardrails**
+  - Define optional feature dependencies (e.g., dashboard requires level 3 scan context)
+  - Validate incompatible combinations with actionable error messages
+  - Document dependency rules in README and CLI help
+- [ ] **Preset-based feature profiles**
+  - Add simple profiles like `minimal`, `standard`, `compliance-heavy`
+  - Allow profile + explicit overrides (`--enable-features` / `--disable-features`)
+  - Emit selected profile in `.ai-docs/FEATURES.md`
+- [ ] **Per-feature generation metrics**
+  - Track generated file counts by feature key
+  - Add feature-level timings to JSON report output
+  - Surface slowest features in performance history reporting
+
 ---
 
 ## Notes
@@ -145,4 +164,4 @@
 - Phase 5+ (expansion) adds new capabilities
 
 **Last Updated**: 2026-06-30
-**Modularization Commit**: 859912d
+**Modularization Commit**: a115f7c
