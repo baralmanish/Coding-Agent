@@ -290,6 +290,27 @@ class BootstrapIntegrationTests(unittest.TestCase):
             self.assertIn("Active Features For This Run", feature_doc)
             self.assertIn("- feature-catalog", feature_doc)
 
+    def test_resolve_active_features_rejects_unknown_feature(self):
+        with self.assertRaises(ValueError):
+            mod.resolve_active_features(
+                explicit_features=["base-docs", "not-real"],
+                enable_features=[],
+                disable_features=[],
+                apply_auto_patches=False,
+            )
+
+    def test_resolve_active_features_can_incrementally_add_features(self):
+        active = mod.resolve_active_features(
+            explicit_features=["base-docs"],
+            enable_features=["feature-catalog", "compliance-dashboard"],
+            disable_features=[],
+            apply_auto_patches=False,
+        )
+
+        self.assertIn("base-docs", active)
+        self.assertIn("feature-catalog", active)
+        self.assertIn("compliance-dashboard", active)
+
 
 if __name__ == "__main__":
     unittest.main()

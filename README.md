@@ -192,6 +192,12 @@ Generated feature visibility file:
 
 - `.ai-docs/FEATURES.md` (available options + active/inactive features)
 
+Validation behavior:
+
+- Feature names must be from `--list-features`
+- Unknown feature names fail fast with an error (not silently ignored)
+- Add more capabilities later with `--enable-features` and remove with `--disable-features`
+
 ## Stack Presets
 
 In new-project onboarding, you can select:

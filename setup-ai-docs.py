@@ -460,8 +460,22 @@ def resolve_active_features(
     enable_features: list[str],
     disable_features: list[str],
     apply_auto_patches: bool,
-) -> tuple[list[str], list[str]]:
-    warnings = []
+) -> list[str]:
+    known = set(FEATURE_CATALOG.keys())
+    provided = set(explicit_features or []) | set(enable_features or []) | set(
+        disable_features or []
+    )
+    unknown = []
+    for raw in sorted(provided):
+        norm = slugify_intent_key(raw)
+        if norm not in known:
+            unknown.append(raw)
+    if unknown:
+        valid = ", ".join(sorted(FEATURE_CATALOG.keys()))
+        unknown_text = ", ".join(unknown)
+        raise ValueError(
+            f"Unsupported feature option(s): {{unknown_text}}. Use --list-features. Valid options: {{valid}}"
+        )
 
     if explicit_features:
         active = normalize_feature_keys(explicit_features)
@@ -475,17 +489,10 @@ def resolve_active_features(
     disable_set = set(normalize_feature_keys(disable_features))
     active = [key for key in active if key not in disable_set]
 
-    known = set(FEATURE_CATALOG.keys())
-    provided = set(explicit_features or []) | set(enable_features or []) | set(disable_features or [])
-    for raw in sorted(provided):
-        norm = slugify_intent_key(raw)
-        if norm not in known:
-            warnings.append(f"Unknown feature option ignored: {{raw}}")
-
     if apply_auto_patches and "auto-patch-apply" not in active:
         active.append("auto-patch-apply")
 
-    return active, warnings
+    return active
 
 
 def generate_feature_status_md(active_features: list[str]) -> str:
@@ -2299,14 +2306,15 @@ def main() -> None:
     explicit_features = parse_csv_items(args.features or "")
     enable_features = parse_csv_items(args.enable_features or "")
     disable_features = parse_csv_items(args.disable_features or "")
-    active_features, feature_warnings = resolve_active_features(
-        explicit_features,
-        enable_features,
-        disable_features,
-        apply_auto_patches=bool(args.apply_auto_patches),
-    )
-    for warning in feature_warnings:
-        print(f"WARNING: {{warning}}")
+    try:
+        active_features = resolve_active_features(
+            explicit_features,
+            enable_features,
+            disable_features,
+            apply_auto_patches=bool(args.apply_auto_patches),
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc))
 
     new_details = None
     if mode == "new":
