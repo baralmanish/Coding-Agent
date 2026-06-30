@@ -246,6 +246,53 @@ class ComplianceGeneratorTests(unittest.TestCase):
             updated = target.read_text(encoding="utf-8")
             self.assertIn("sha256(v.encode()).hexdigest()", updated)
 
+    def test_apply_level_3_patch_proposals_respects_allowlist(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project_dir = Path(tmp)
+            src_target = project_dir / "src" / "hashing.py"
+            test_target = project_dir / "tests" / "hashing.py"
+            src_target.parent.mkdir(parents=True, exist_ok=True)
+            test_target.parent.mkdir(parents=True, exist_ok=True)
+            src_target.write_text(
+                "def digest(v):\n    return md5(v.encode()).hexdigest()\n",
+                encoding="utf-8",
+            )
+            test_target.write_text(
+                "def digest(v):\n    return md5(v.encode()).hexdigest()\n",
+                encoding="utf-8",
+            )
+
+            result = apply_level_3_patch_proposals(
+                project_dir,
+                [{"key": "pci-dss", "name": "PCI DSS"}],
+                patch_allowlist=["src"],
+                patch_denylist=[],
+            )
+
+            self.assertEqual(len(result["applied"]), 1)
+            self.assertIn("sha256", src_target.read_text(encoding="utf-8"))
+            self.assertIn("md5", test_target.read_text(encoding="utf-8"))
+
+    def test_apply_level_3_patch_proposals_respects_denylist(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project_dir = Path(tmp)
+            blocked_target = project_dir / "src" / "legacy" / "hashing.py"
+            blocked_target.parent.mkdir(parents=True, exist_ok=True)
+            blocked_target.write_text(
+                "def digest(v):\n    return md5(v.encode()).hexdigest()\n",
+                encoding="utf-8",
+            )
+
+            result = apply_level_3_patch_proposals(
+                project_dir,
+                [{"key": "pci-dss", "name": "PCI DSS"}],
+                patch_allowlist=["src"],
+                patch_denylist=["src/legacy"],
+            )
+
+            self.assertEqual(len(result["applied"]), 0)
+            self.assertIn("md5", blocked_target.read_text(encoding="utf-8"))
+
     def test_generate_level_3_applied_patch_report_contains_diff(self):
         with tempfile.TemporaryDirectory() as tmp:
             project_dir = Path(tmp)

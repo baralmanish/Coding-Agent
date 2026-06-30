@@ -48,6 +48,7 @@ It supports:
 - `.github/workflows/ai-docs-freshness.yml`: optional CI check workflow
 - `.github/pull_request_template.md`: pull request checklist
 - `.github/ISSUE_TEMPLATE/*`: bug and feature request templates
+- `OPERATIONAL_PLAYBOOK.md`: troubleshooting, security checklist, and upgrade notes
 
 ## Makefile Shortcuts
 

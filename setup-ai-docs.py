@@ -398,6 +398,7 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -417,6 +418,10 @@ DEFAULT_AGENTS = [
     "openai-codex",
     "antigravity",
 ]
+
+MAX_CUSTOM_CONFIG_BYTES = 262144
+MAX_CUSTOM_ITEMS = 50
+MAX_CUSTOM_TEXT_LENGTH = 4000
 
 STACK_PRESETS = {stack_presets_literal}
 
@@ -641,18 +646,30 @@ def parse_compliance_input(raw: str) -> list[str]:
 def parse_csv_items(raw: str) -> list[str]:
     if not raw:
         return []
-    return [item.strip() for item in raw.split(",") if item.strip()]
+    cleaned = []
+    for item in raw.split(","):
+        value = item.strip()
+        if not value:
+            continue
+        if len(value) > 120:
+            value = value[:120]
+        cleaned.append(value)
+        if len(cleaned) >= MAX_CUSTOM_ITEMS:
+            break
+    return cleaned
 
 
 def normalize_custom_compliance_rules(raw_rules: list[dict] | None) -> list[dict]:
     normalized = []
     for rule in raw_rules or []:
+        if len(normalized) >= MAX_CUSTOM_ITEMS:
+            break
         if not isinstance(rule, dict):
             continue
         raw_key = str(rule.get("key") or rule.get("name") or "").strip()
         if not raw_key:
             continue
-        checks = [str(item).strip() for item in rule.get("checks", []) if str(item).strip()]
+        checks = [str(item).strip()[:200] for item in rule.get("checks", []) if str(item).strip()][:MAX_CUSTOM_ITEMS]
         normalized.append(
             {{
                 "key": slugify_intent_key(raw_key),
@@ -666,14 +683,29 @@ def normalize_custom_compliance_rules(raw_rules: list[dict] | None) -> list[dict
 def normalize_custom_feature_templates(raw_templates: list[dict] | None) -> list[dict]:
     templates = []
     for item in raw_templates or []:
+        if len(templates) >= MAX_CUSTOM_ITEMS:
+            break
         if not isinstance(item, dict):
             continue
         name = str(item.get("name") or "").strip()
         template = str(item.get("template") or "").strip()
         if not name or not template:
             continue
-        templates.append({{"name": sanitize_feature_name(name), "template": template}})
+        templates.append({{"name": sanitize_feature_name(name), "template": template[:MAX_CUSTOM_TEXT_LENGTH]}})
     return templates
+
+
+def _sanitize_custom_config_payload(payload: dict) -> dict:
+    allowed_keys = {{
+        "custom_frameworks",
+        "custom_compliance_rules",
+        "custom_feature_templates",
+    }}
+    sanitized = {{}}
+    for key in allowed_keys:
+        if key in payload:
+            sanitized[key] = payload[key]
+    return sanitized
 
 
 def load_custom_config(path_value: str | None) -> dict:
@@ -683,6 +715,16 @@ def load_custom_config(path_value: str | None) -> dict:
     if not config_path.exists() or not config_path.is_file():
         print(f"Custom config not found: {{config_path}}. Skipping.")
         return {{}}
+    if config_path.suffix.lower() != ".json":
+        print(f"Custom config must be a .json file: {{config_path}}. Skipping.")
+        return {{}}
+    try:
+        if config_path.stat().st_size > MAX_CUSTOM_CONFIG_BYTES:
+            print(f"Custom config too large: {{config_path}}. Skipping.")
+            return {{}}
+    except Exception:
+        print(f"Unable to stat custom config: {{config_path}}. Skipping.")
+        return {{}}
     try:
         payload = json.loads(config_path.read_text(encoding="utf-8"))
     except Exception:
@@ -691,7 +733,7 @@ def load_custom_config(path_value: str | None) -> dict:
     if not isinstance(payload, dict):
         print(f"Custom config must be a JSON object: {{config_path}}. Skipping.")
         return {{}}
-    return payload
+    return _sanitize_custom_config_payload(payload)
 
 
 def detect_project_type(project_dir: Path) -> str:
@@ -1238,6 +1280,82 @@ def resolve_generated_at(project_dir: Path, check_mode: bool) -> str:
             pass
 
     return now_utc()
+
+
+def resolve_output_path(project_dir: Path, path_value: str) -> Path:
+    candidate = Path(path_value).expanduser()
+    if candidate.is_absolute():
+        return candidate
+    return (project_dir / candidate).resolve()
+
+
+def build_run_metrics(
+    project_dir: Path,
+    mode: str,
+    check_mode: bool,
+    dry_run: bool,
+    generated_files: list[str],
+    changed_files: list[str],
+    start_time: float,
+) -> dict:
+    duration_ms = int((time.perf_counter() - start_time) * 1000)
+    compliance_files = [p for p in generated_files if p.startswith(".specs/compliance/")]
+    return {{
+        "timestamp": now_utc(),
+        "generator_version": GENERATOR_VERSION,
+        "project": str(project_dir),
+        "mode": mode,
+        "check_mode": bool(check_mode),
+        "dry_run": bool(dry_run),
+        "duration_ms": max(0, duration_ms),
+        "managed_files": len(generated_files),
+        "changed_files": len(changed_files),
+        "compliance_files": len(compliance_files),
+    }}
+
+
+def write_json_report(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def update_performance_history(
+    history_path: Path,
+    metrics: dict,
+    window_size: int = 10,
+) -> dict:
+    history_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        raw = json.loads(history_path.read_text(encoding="utf-8"))
+    except Exception:
+        raw = {{"runs": []}}
+
+    runs = raw.get("runs", []) if isinstance(raw, dict) else []
+    if not isinstance(runs, list):
+        runs = []
+
+    entry = {{
+        "timestamp": metrics.get("timestamp", now_utc()),
+        "duration_ms": int(metrics.get("duration_ms", 0)),
+        "mode": metrics.get("mode", "unknown"),
+        "changed_files": int(metrics.get("changed_files", 0)),
+    }}
+    runs.append(entry)
+    runs = runs[-200:]
+
+    previous = [int(item.get("duration_ms", 0)) for item in runs[:-1] if int(item.get("duration_ms", 0)) > 0]
+    previous = previous[-max(1, window_size):]
+    baseline = int(sum(previous) / len(previous)) if previous else None
+    regression = bool(baseline and entry["duration_ms"] > int(baseline * 1.2))
+
+    payload = {{"runs": runs}}
+    history_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    return {{
+        "baseline_duration_ms": baseline,
+        "current_duration_ms": entry["duration_ms"],
+        "regression": regression,
+    }}
 
 
 def resolve_compliance_packs(app_intent_input: str, selected_keys: list[str] | None = None) -> list[dict]:
@@ -1899,6 +2017,8 @@ related:
             apply_result = apply_level_3_patch_proposals(
                 project_dir,
                 compliance_packs,
+                patch_allowlist=ctx.get("patch_allowlist", []),
+                patch_denylist=ctx.get("patch_denylist", []),
             )
             applied_report = generate_level_3_applied_patch_report(
                 project_dir,
@@ -1983,6 +2103,7 @@ def parse_args() -> argparse.Namespace:
         help="Project mode detection override",
     )
     parser.add_argument("--check", action="store_true", help="Check mode: do not write files, exit non-zero if docs are out of date.")
+    parser.add_argument("--dry-run", action="store_true", help="Preview generated file changes without writing files.")
     parser.add_argument("--non-interactive", action="store_true", help="Use defaults for prompts in new-project mode.")
     parser.add_argument("--intent", help="Optional app intent for new-project mode (useful for CI/non-interactive runs).")
     parser.add_argument(
@@ -2008,6 +2129,14 @@ def parse_args() -> argparse.Namespace:
         help="Apply deterministic Level 3 auto-patch remediations (explicit opt-in).",
     )
     parser.add_argument(
+        "--patch-allowlist",
+        help="Comma-separated relative path prefixes where auto-patches are allowed (default: src,app,services).",
+    )
+    parser.add_argument(
+        "--patch-denylist",
+        help="Comma-separated relative path prefixes where auto-patches are blocked (default includes tests,node_modules,dist,build).",
+    )
+    parser.add_argument(
         "--custom-frameworks",
         help="Optional comma-separated custom frameworks for new-project mode.",
     )
@@ -2018,12 +2147,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--list-stack-presets", action="store_true", help="Print available stack presets and exit.")
     parser.add_argument("--list-intents", action="store_true", help="Print starter and keyword-mapped intent profiles and exit.")
     parser.add_argument("--list-compliance", action="store_true", help="Print available compliance packs and exit.")
+    parser.add_argument("--version", action="store_true", help="Print generator version and release highlights.")
+    parser.add_argument("--json-report-path", help="Optional path to write structured JSON run report.")
+    parser.add_argument("--track-performance", action="store_true", help="Track run duration history and flag regressions.")
+    parser.add_argument("--performance-history-path", default="benchmarks/performance-history.json", help="Path for performance history JSON when --track-performance is enabled.")
     parser.add_argument("--report-path", help="Optional path to write markdown report in --check mode.")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+
+    if args.version:
+        print(f"ai-docs-bootstrap generator version: {{GENERATOR_VERSION}}")
+        print("Recent release highlights:")
+        print("- Phase 5: presets, archetypes, custom agent config, localization")
+        print("- Phase 6: analysis, patch proposals/apply, dashboard")
+        print("- Phase 7: hardening and CI quality gates")
+        raise SystemExit(0)
 
     if args.list_stack_presets or args.list_intents or args.list_compliance:
         print_catalogs(args.list_stack_presets, args.list_intents, args.list_compliance)
@@ -2113,7 +2254,39 @@ def main() -> None:
     generated_at = resolve_generated_at(project_dir, args.check)
     ctx = build_common_context(mode, stack, new_details, generated_at)
     ctx["apply_auto_patches"] = bool(args.apply_auto_patches)
-    generated_files, changed_files = generate_files(project_dir, ctx, markdown_context, check_mode=args.check)
+    ctx["patch_allowlist"] = parse_csv_items(args.patch_allowlist or "")
+    ctx["patch_denylist"] = parse_csv_items(args.patch_denylist or "")
+    run_start = time.perf_counter()
+    dry_run = bool(args.dry_run)
+    generated_files, changed_files = generate_files(
+        project_dir,
+        ctx,
+        markdown_context,
+        check_mode=args.check or dry_run,
+    )
+
+    run_metrics = build_run_metrics(
+        project_dir,
+        mode,
+        check_mode=bool(args.check),
+        dry_run=dry_run,
+        generated_files=generated_files,
+        changed_files=changed_files,
+        start_time=run_start,
+    )
+
+    if args.track_performance:
+        perf_path = resolve_output_path(project_dir, args.performance_history_path)
+        perf_result = update_performance_history(perf_path, run_metrics)
+        run_metrics["performance"] = perf_result
+        if perf_result.get("regression"):
+            baseline = perf_result.get("baseline_duration_ms")
+            current = perf_result.get("current_duration_ms")
+            print(f"WARNING: performance regression detected (current={{current}}ms, baseline={{baseline}}ms)")
+
+    if args.json_report_path:
+        report_json_path = resolve_output_path(project_dir, args.json_report_path)
+        write_json_report(report_json_path, run_metrics)
 
     if args.check:
         if changed_files:
@@ -2131,6 +2304,16 @@ def main() -> None:
         if args.report_path:
             write_check_report((project_dir / args.report_path).resolve(), [], [], project_dir)
         print("\\nAI docs are up to date.")
+        raise SystemExit(0)
+
+    if dry_run:
+        print("\\nAI docs dry-run summary")
+        print(f"Project: {{project_dir}}")
+        print(f"Mode: {{mode}}")
+        print(f"Managed files (planned): {{len(generated_files)}}")
+        print(f"Files that would change: {{len(changed_files)}}")
+        for file_name in changed_files:
+            print(f"- {{file_name}}")
         raise SystemExit(0)
 
     print("\\nAI docs generation complete.")

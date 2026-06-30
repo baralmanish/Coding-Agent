@@ -1,6 +1,8 @@
 import importlib.machinery
 import importlib.util
+import json
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -197,6 +199,51 @@ class BootstrapIntegrationTests(unittest.TestCase):
                 project_dir / ".specs" / "features" / "risk-engine" / "spec.md"
             ).read_text(encoding="utf-8")
             self.assertIn("Custom risk workflow", custom_spec)
+
+    def test_run_metrics_and_json_report_helpers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project_dir = Path(tmp)
+            start = time.perf_counter() - 0.01
+            metrics = mod.build_run_metrics(
+                project_dir=project_dir,
+                mode="existing",
+                check_mode=False,
+                dry_run=True,
+                generated_files=[".specs/compliance/pci-dss-scanning.md", "AGENTS.md"],
+                changed_files=["AGENTS.md"],
+                start_time=start,
+            )
+
+            self.assertEqual(metrics["mode"], "existing")
+            self.assertTrue(metrics["dry_run"])
+            self.assertEqual(metrics["compliance_files"], 1)
+            self.assertGreaterEqual(metrics["duration_ms"], 0)
+
+            report_path = project_dir / "reports" / "run.json"
+            mod.write_json_report(report_path, metrics)
+            written = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertEqual(written["mode"], "existing")
+
+    def test_update_performance_history_detects_regression(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project_dir = Path(tmp)
+            history_path = project_dir / "benchmarks" / "performance-history.json"
+
+            base = {
+                "timestamp": "2026-06-30 12:00:00 UTC",
+                "mode": "existing",
+                "changed_files": 1,
+            }
+            mod.update_performance_history(history_path, {**base, "duration_ms": 100})
+            mod.update_performance_history(history_path, {**base, "duration_ms": 110})
+            result = mod.update_performance_history(
+                history_path, {**base, "duration_ms": 220}
+            )
+
+            self.assertTrue(result["regression"])
+            self.assertGreater(
+                result["current_duration_ms"], result["baseline_duration_ms"]
+            )
 
 
 if __name__ == "__main__":

@@ -53,8 +53,21 @@ chmod +x ai-docs-bootstrap
 1. Regenerate bootstrap after source changes.
 2. Run unit and integration tests.
 3. Run benchmark script when performance-sensitive code changes.
-4. Commit both source changes and generated bootstrap together.
-5. Tag release or publish changelog notes.
+4. Package release artifacts with checksums.
+5. Commit both source changes and generated bootstrap together.
+6. Tag release or publish changelog notes.
+
+Release packaging helper:
+
+```bash
+./scripts/package_release.sh dist/release v1.0.0
+```
+
+Outputs:
+
+- `dist/release/ai-docs-bootstrap`
+- `dist/release/ai-docs-bootstrap-v1.0.0.tar.gz`
+- `dist/release/ai-docs-bootstrap-v1.0.0.sha256`
 
 ## CI Integration
 
@@ -83,10 +96,12 @@ Common options:
 - --project path to target repository
 - --mode auto|new|existing
 - --check for verification mode without writes
+- --dry-run for planned change summary without writes
 - --non-interactive for CI-friendly new mode
 - --intent for non-interactive intent selection
 - --compliance for explicit compliance packs
 - --compliance-level 0 to 3
+- --version for generator version and release highlights
 
 Catalog options:
 

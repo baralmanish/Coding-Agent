@@ -7,6 +7,20 @@ and validation scripts for each supported framework (PCI-DSS, HIPAA, GDPR, etc.)
 from pathlib import Path
 import html
 import re
+import time
+
+
+MAX_SCAN_FILES = 400
+MAX_FINDINGS_PER_RULE = 20
+MAX_PATCHES_PER_RULE = 10
+DEFAULT_PATCH_ALLOWLIST = ("src/", "app/", "services/")
+DEFAULT_PATCH_DENYLIST = (
+    "tests/",
+    "test/",
+    "node_modules/",
+    "dist/",
+    "build/",
+)
 
 
 def _localization_tokens(locale: str) -> dict[str, str]:
@@ -707,8 +721,10 @@ def _iter_source_files(project_dir: Path, max_files: int = 200) -> list[Path]:
     ignored = {".git", "node_modules", "dist", "build", "__pycache__", ".venv", "venv"}
     files: list[Path] = []
 
+    bounded_max = max(1, min(int(max_files or 1), MAX_SCAN_FILES))
+
     for path in project_dir.rglob("*"):
-        if len(files) >= max_files:
+        if len(files) >= bounded_max:
             break
         if any(part in ignored for part in path.parts):
             continue
@@ -766,6 +782,10 @@ def _collect_pattern_findings(
     compliance_packs: list[dict],
     max_findings_per_rule: int,
 ) -> list[dict]:
+    bounded_findings = max(
+        1, min(int(max_findings_per_rule or 1), MAX_FINDINGS_PER_RULE)
+    )
+    deadline = time.monotonic() + 6.0
     source_files = _iter_source_files(project_dir)
     if not source_files:
         return []
@@ -779,7 +799,7 @@ def _collect_pattern_findings(
             compiled = re.compile(rule["pattern"], re.IGNORECASE)
             match_count = 0
             for src in source_files:
-                if match_count >= max_findings_per_rule:
+                if match_count >= bounded_findings or time.monotonic() > deadline:
                     break
                 try:
                     content = src.read_text(encoding="utf-8", errors="ignore")
@@ -1050,6 +1070,10 @@ def _collect_patch_candidates(
     compliance_packs: list[dict],
     max_candidates_per_rule: int,
 ) -> list[dict]:
+    bounded_candidates = max(
+        1, min(int(max_candidates_per_rule or 1), MAX_PATCHES_PER_RULE)
+    )
+    deadline = time.monotonic() + 6.0
     source_files = _iter_source_files(project_dir)
     if not source_files:
         return []
@@ -1063,7 +1087,7 @@ def _collect_patch_candidates(
             compiled = re.compile(rule["pattern"], re.IGNORECASE)
             candidate_count = 0
             for src in source_files:
-                if candidate_count >= max_candidates_per_rule:
+                if candidate_count >= bounded_candidates or time.monotonic() > deadline:
                     break
                 try:
                     lines = src.read_text(
@@ -1142,6 +1166,8 @@ def apply_level_3_patch_proposals(
     project_dir: Path,
     compliance_packs: list[dict],
     max_patches_per_rule: int = 3,
+    patch_allowlist: list[str] | None = None,
+    patch_denylist: list[str] | None = None,
 ) -> dict[str, list[dict]]:
     """Apply auto-patch replacements for candidates that have deterministic mappings."""
     applied: list[dict] = []
@@ -1151,9 +1177,25 @@ def apply_level_3_patch_proposals(
         max_patches_per_rule,
     )
 
+    allowlist = [
+        value.strip().strip("/") + "/"
+        for value in (patch_allowlist or list(DEFAULT_PATCH_ALLOWLIST))
+        if value and value.strip()
+    ]
+    denylist = [
+        value.strip().strip("/") + "/"
+        for value in (patch_denylist or list(DEFAULT_PATCH_DENYLIST))
+        if value and value.strip()
+    ]
+
     for item in candidates:
         path = item["path"]
         line_no = int(item["line_no"])
+        rel_path = str(path.relative_to(project_dir)).replace("\\", "/")
+        if allowlist and not any(rel_path.startswith(prefix) for prefix in allowlist):
+            continue
+        if any(rel_path.startswith(prefix) for prefix in denylist):
+            continue
         try:
             lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
         except Exception:

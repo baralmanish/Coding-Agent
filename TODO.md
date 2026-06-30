@@ -111,6 +111,29 @@
   - [x] File generation progress tracking
   - [x] Real-time scanning results
 
+## Phase 7: Production Readiness
+
+- [x] **Production hardening & security gates**
+  - [x] Add strict input validation for custom config and CLI params
+  - [x] Add safe limits/timeouts for file scanning and patch routines
+  - [x] Add denylist/allowlist controls for patch-apply scope
+- [x] **CI/CD compliance quality gates**
+  - [x] Add GitHub Actions workflow for generator + tests + lint
+  - [x] Add required check mode to fail on stale generated docs
+  - [x] Publish compliance artifacts as CI build outputs
+- [x] **CLI UX & release packaging**
+  - [x] Add `--dry-run` generation summary mode
+  - [x] Add version banner/changelog command
+  - [x] Package and document release process for bootstrap distribution
+- [x] **Observability & telemetry**
+  - [x] Add run metrics (files scanned, findings, patches proposed/applied)
+  - [x] Add structured JSON run report output option
+  - [x] Track generation performance regressions over time
+- [x] **Operational docs & support playbooks**
+  - [x] Troubleshooting guide for common generator failures
+  - [x] Security review checklist for auto-patch usage
+  - [x] Upgrade/migration notes between generator versions
+
 ---
 
 ## Notes
