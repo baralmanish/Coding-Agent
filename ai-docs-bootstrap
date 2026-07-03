@@ -2090,7 +2090,7 @@ def ask_new_project_details() -> dict:
     lint_raw = input("Lint/format tools (comma separated, e.g. eslint,prettier,ruff): ").strip()
     custom_frameworks_raw = input("Custom frameworks (optional comma separated, e.g. InternalSDK,GraphQL Mesh): ").strip()
     custom_config_path = input("Custom config JSON path (optional, includes custom compliance rules/templates): ").strip()
-
+    
     # Ask about compliance level
     print("\n" + "="*70)
     print("COMPLIANCE LEVEL SELECTION")
@@ -2115,7 +2115,7 @@ def ask_new_project_details() -> dict:
     print("    - Good for: Enterprise teams, development guidance")
     print("\n  Level 0: Skip (no compliance docs)")
     print("="*70)
-
+    
     compliance_level_raw = input("Compliance level (0/1/2/3, default 1): ").strip() or "1"
     compliance_raw = input("Compliance packs (optional comma separated: pci-dss,hipaa,soc2,gdpr,ccpa,iso27001): ").strip()
 
@@ -3547,7 +3547,7 @@ def main() -> None:
             custom_feature_templates = normalize_custom_feature_templates(
                 custom_config.get("custom_feature_templates")
             )
-
+            
             # Parse compliance level
             compliance_level = 1  # default
             if args.compliance_level:
@@ -3557,7 +3557,7 @@ def main() -> None:
                         compliance_level = level
                 except ValueError:
                     pass
-
+            
             new_details = {
                 "target_os": GENERATOR_TARGET_OS if GENERATOR_TARGET_OS != "auto" else "auto",
                 "locale": (args.locale or "en").strip().lower() or "en",
