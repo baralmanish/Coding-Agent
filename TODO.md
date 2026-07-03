@@ -169,6 +169,25 @@
   - Run fast tier on PRs and full tier on main/nightly
   - Track matrix duration trend and optimize slowest cases
 
+## Phase 9: Reliability and Release Scale
+
+- [ ] **Matrix intelligence and flake control**
+  - Capture per-case failure artifacts (stdout/stderr bundles)
+  - Add deterministic rerun support (ordering seed)
+  - Add retry metadata for known flaky classes without masking hard failures
+- [ ] **Feature lifecycle enforcement gates**
+  - Require lifecycle transition notes for experimental/deprecated changes
+  - Add deprecated feature countdown metadata and validation
+  - Fail release checks when removed aliases are still referenced
+- [ ] **Release candidate workflow and summary**
+  - Add RC workflow that runs full matrix + snapshots + freshness + smoke
+  - Emit consolidated release summary JSON artifact
+  - Include rollback guidance generated from lifecycle/feature changes
+- [ ] **Performance optimization loop**
+  - Track p50/p95 trend from matrix duration history
+  - Export top-N slow case trend data for charting
+  - Reduce full-tier duration and variance by optimizing slowest cases
+
 ---
 
 ## Notes
