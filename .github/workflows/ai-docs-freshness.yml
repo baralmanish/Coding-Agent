@@ -21,6 +21,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Style Check Feature Matrix Script
+        run: |
+          python3 -m pip install --disable-pip-version-check black==24.10.0
+          python3 -m black --check scripts/feature_matrix_ci.py
+
       - name: Build Bootstrap
         run: |
           printf "4\n" | python3 setup-ai-docs.py
