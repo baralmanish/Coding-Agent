@@ -168,6 +168,16 @@ Notes:
 ./ai-docs-bootstrap --project /path/to/project --mode existing --check --report-path .ai-docs-check-report.md
 ```
 
+### JSON run report with feature metrics
+
+```bash
+./ai-docs-bootstrap --project /path/to/project --mode existing \
+   --json-report-path .ai-docs-run-report.json \
+   --track-performance
+```
+
+The JSON report includes per-feature `generated_files`, `changed_files`, and `duration_ms` entries. Performance history also records the slowest features for each run.
+
 ### Discover available options (no prompts)
 
 ```bash
@@ -176,6 +186,44 @@ Notes:
 ./ai-docs-bootstrap --list-compliance
 ./ai-docs-bootstrap --list-features
 ```
+
+### Feature snapshot validation (golden outputs)
+
+Validate key feature combinations against versioned fixtures:
+
+```bash
+python3 scripts/feature_snapshot_ci.py --bootstrap ./ai-docs-bootstrap
+```
+
+Regenerate fixtures intentionally after approved content changes:
+
+```bash
+python3 scripts/feature_snapshot_ci.py --bootstrap ./ai-docs-bootstrap --update-fixtures
+```
+
+CI writes:
+
+- `.ci-artifacts/feature-snapshot-summary.json`
+- `.ci-artifacts/feature-snapshot-diffs.md` (actionable diff hints)
+
+### Feature matrix tiers and performance trend
+
+Run fast tier (PR-focused):
+
+```bash
+python3 scripts/feature_matrix_ci.py --bootstrap ./ai-docs-bootstrap --tier fast
+```
+
+Run full tier (main/nightly):
+
+```bash
+python3 scripts/feature_matrix_ci.py --bootstrap ./ai-docs-bootstrap --tier full
+```
+
+Matrix artifacts include:
+
+- Tier summary with `duration_ms` and `slowest_cases`
+- Duration trend data in `.ci-artifacts/feature-matrix-duration-history-*.json`
 
 ### Modular feature selection
 
@@ -188,6 +236,53 @@ Use only the capabilities you want for a run:
    --disable-features "compliance-dashboard"
 ```
 
+Use a named feature profile as the base set, then override it:
+
+```bash
+./ai-docs-bootstrap --project /path/to/project --mode existing \
+   --feature-profile "standard" \
+   --enable-features "compliance-level-3,compliance-dashboard" \
+   --disable-features "custom-agent-config"
+```
+
+Available profiles:
+
+- `minimal`: core docs, agent docs, feature specs, feature catalog
+- `standard`: minimal + custom-agent-config + compliance-level-2
+- `compliance-heavy`: standard + compliance-level-3 + ai-analysis + patch-proposals + compliance-dashboard
+
+Notes:
+
+- `--feature-profile` cannot be combined with `--features`
+- Use `--list-feature-profiles` to print the profile definitions
+
+Import/export repeatable feature config:
+
+```bash
+# Import
+./ai-docs-bootstrap --project /path/to/project --mode existing \
+   --features-config .ai-docs/features-config.json
+
+# Export resolved active set
+./ai-docs-bootstrap --project /path/to/project --mode existing \
+   --feature-profile "standard" \
+   --enable-features "compliance-level-3,compliance-dashboard" \
+   --write-features-config .ai-docs/features-config.json
+```
+
+Feature config schema keys:
+
+- `feature_profile` (string)
+- `features` (array of strings)
+- `enable_features` (array of strings)
+- `disable_features` (array of strings)
+- `apply_auto_patches` (boolean)
+
+Validation behavior:
+
+- Unknown keys in `--features-config` fail fast with a clear error
+- CLI flags override imported config where explicitly provided
+
 Generated feature visibility file:
 
 - `.ai-docs/FEATURES.md` (available options + active/inactive features)
@@ -196,7 +291,32 @@ Validation behavior:
 
 - Feature names must be from `--list-features`
 - Unknown feature names fail fast with an error (not silently ignored)
+- Dependency violations fail fast with actionable messages
 - Add more capabilities later with `--enable-features` and remove with `--disable-features`
+- Selected profile is emitted in `.ai-docs/FEATURES.md`
+
+Dependency rules:
+
+- `ai-analysis` requires `compliance-level-3`
+- `patch-proposals` requires `compliance-level-3`
+- `compliance-dashboard` requires `compliance-level-3`
+- `auto-patch-apply` requires `compliance-level-3` and the `--apply-auto-patches` flag
+
+Feature lifecycle policy:
+
+- Feature keys are lifecycle-labeled as `stable`, `experimental`, or `deprecated`
+- `--list-features` and `.ai-docs/FEATURES.md` include lifecycle labels
+- Renamed feature keys are auto-migrated (alias mapping) and shown by `--list-features`
+- Removed feature keys fail fast with migration guidance
+
+Current alias migrations:
+
+- `ai-compliance-analysis` -> `ai-analysis`
+- `dashboard-html` -> `compliance-dashboard`
+
+Current removed keys:
+
+- `compliance-report`: use `compliance-level-2` and/or `compliance-level-3` outputs
 
 Feature key reference:
 

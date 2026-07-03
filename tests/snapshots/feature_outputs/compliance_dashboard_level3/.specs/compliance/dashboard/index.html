@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Compliance Dashboard</title>
+    <style>
+        :root {
+            --bg: #f4f7f5;
+            --ink: #0f2a22;
+            --accent: #0f766e;
+            --panel: #ffffff;
+            --warn: #b45309;
+            --risk: #b91c1c;
+        }
+        body { margin: 0; font-family: "Avenir Next", "Segoe UI", sans-serif; background: radial-gradient(circle at 80% 10%, #d8f5ef 0%, var(--bg) 48%); color: var(--ink); }
+        .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+        .hero { background: linear-gradient(120deg, #0f766e, #115e59); color: #fff; padding: 22px; border-radius: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.12); }
+        .meta { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 14px; margin-top: 18px; }
+        .card { background: var(--panel); border-radius: 14px; padding: 14px; box-shadow: 0 8px 22px rgba(0,0,0,.06); }
+        .bar { height: 12px; border-radius: 999px; background: #d1fae5; overflow: hidden; }
+        .bar > span { display:block; height: 100%; width: 0%; background: linear-gradient(90deg, #14b8a6, #0f766e); }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+        th { background: #f8fafc; }
+        .pulse { width: 10px; height: 10px; border-radius: 50%; background: #22c55e; display: inline-block; animation: pulse 1.6s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.9); opacity: .15; } }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <section class="hero">
+            <h1>Compliance Dashboard</h1>
+            <p>Status visualization and scan telemetry for selected frameworks.</p>
+            <p>Live scan status: <span class="pulse"></span> <strong id="scan-state">running</strong> · Last refresh <strong id="tick">now</strong></p>
+        </section>
+
+        <section class="meta">
+            <article class="card">
+                <h3>Frameworks</h3>
+                <p>1 selected</p>
+            </article>
+            <article class="card">
+                <h3>Findings</h3>
+                <p>0 active signals</p>
+            </article>
+            <article class="card">
+                <h3>File Generation Progress</h3>
+                <div class="bar"><span></span></div>
+                <p>0/1 compliance files (0%)</p>
+            </article>
+        </section>
+
+        <section class="card" style="margin-top: 16px;">
+            <h3>Framework Status</h3>
+            <table>
+                <thead><tr><th>Framework</th><th>Status</th><th>Severity</th><th>Findings</th></tr></thead>
+                <tbody>
+                    <tr><td>PCI-DSS</td><td>No Signals</td><td>low</td><td>0</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="card" style="margin-top: 16px;">
+            <h3>Real-Time Scanning Results</h3>
+            <table>
+                <thead><tr><th>Framework</th><th>Rule</th><th>Location</th><th>Matched Signal</th></tr></thead>
+                <tbody>
+                    <tr><td colspan='4'>No scan findings detected yet.</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+    <script>
+        const tick = document.getElementById('tick');
+        const scanState = document.getElementById('scan-state');
+        function refreshClock() {
+            tick.textContent = new Date().toLocaleTimeString();
+        }
+        setInterval(refreshClock, 1000);
+        setInterval(() => {
+            scanState.textContent = scanState.textContent === 'running' ? 'streaming' : 'running';
+        }, 2400);
+        refreshClock();
+    </script>
+</body>
+</html>
+
+<!-- user-custom:start:local -->
+# Add project-specific guidance here.
+<!-- user-custom:end:local -->

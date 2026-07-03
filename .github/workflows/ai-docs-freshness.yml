@@ -6,16 +6,18 @@ on:
     branches:
       - main
       - master
+  schedule:
+    - cron: "0 4 * * *"
 
 jobs:
   ai-docs-check:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -32,9 +34,69 @@ jobs:
         run: |
           python3 -m unittest discover -s tests -p 'test_*.py'
 
-      - name: Run Feature Matrix Validation
+      - name: Run Feature Matrix Validation (Fast Tier)
+        if: github.event_name == 'pull_request'
         run: |
-          python3 scripts/feature_matrix_ci.py --bootstrap ./ai-docs-bootstrap --summary-path .ci-artifacts/feature-matrix-summary.json
+          python3 scripts/feature_matrix_ci.py \
+            --bootstrap ./ai-docs-bootstrap \
+            --tier fast \
+            --summary-path .ci-artifacts/feature-matrix-summary-fast.json \
+            --history-path .ci-artifacts/feature-matrix-duration-history-fast.json
+
+      - name: Matrix Duration Trend (PR Warning)
+        if: github.event_name == 'pull_request'
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          summary_path = Path('.ci-artifacts/feature-matrix-summary-fast.json')
+          summary = json.loads(summary_path.read_text(encoding='utf-8'))
+          trend = summary.get('duration_trend', {})
+          regression = bool(trend.get('regression'))
+          if regression:
+              baseline = trend.get('baseline_duration_ms')
+              current = trend.get('current_duration_ms')
+              print(f"::warning::Feature matrix fast tier regression detected: current={current}ms baseline={baseline}ms")
+          else:
+              print('Fast tier matrix duration trend is stable.')
+          PY
+
+      - name: Run Feature Matrix Validation (Full Tier)
+        if: github.event_name != 'pull_request'
+        run: |
+          python3 scripts/feature_matrix_ci.py \
+            --bootstrap ./ai-docs-bootstrap \
+            --tier full \
+            --summary-path .ci-artifacts/feature-matrix-summary-full.json \
+            --history-path .ci-artifacts/feature-matrix-duration-history-full.json
+
+      - name: Matrix Duration Trend (Main/Nightly Gate)
+        if: github.event_name != 'pull_request'
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          summary_path = Path('.ci-artifacts/feature-matrix-summary-full.json')
+          summary = json.loads(summary_path.read_text(encoding='utf-8'))
+          trend = summary.get('duration_trend', {})
+          regression = bool(trend.get('regression'))
+          if regression:
+              baseline = trend.get('baseline_duration_ms')
+              current = trend.get('current_duration_ms')
+              raise SystemExit(
+                  f"Feature matrix full-tier regression detected: current={current}ms baseline={baseline}ms"
+              )
+          print('Full tier matrix duration trend is stable.')
+          PY
+
+      - name: Run Feature Snapshot Validation
+        run: |
+          python3 scripts/feature_snapshot_ci.py \
+            --bootstrap ./ai-docs-bootstrap \
+            --summary-path .ci-artifacts/feature-snapshot-summary.json \
+            --diff-path .ci-artifacts/feature-snapshot-diffs.md
 
       - name: Sanity Check Non-Interactive Intent Mode
         run: |
@@ -85,7 +147,7 @@ jobs:
 
       - name: Upload Stale Report
         if: steps.guard.outputs.skip == 'false' && steps.freshness.outputs.exit_code != '0'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ai-docs-freshness-report
           path: |
@@ -94,7 +156,7 @@ jobs:
 
       - name: Upload Compliance CI Artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: compliance-ci-artifacts
           path: |
@@ -102,6 +164,7 @@ jobs:
             .ai-docs-check-report.md
             ai-docs-check.log
             scripts/feature_matrix_ci.py
+            scripts/feature_snapshot_ci.py
           if-no-files-found: ignore
 
       - name: Fail When Docs Are Stale

@@ -140,31 +140,31 @@
   - Add a CI job to run feature selection matrix tests on every PR
   - Publish matrix summary as an artifact for troubleshooting
   - Fail CI on unsupported-feature validation regressions
-- [ ] **Feature dependency guardrails**
+- [x] **Feature dependency guardrails**
   - Define optional feature dependencies (e.g., dashboard requires level 3 scan context)
   - Validate incompatible combinations with actionable error messages
   - Document dependency rules in README and CLI help
-- [ ] **Preset-based feature profiles**
+- [x] **Preset-based feature profiles**
   - Add simple profiles like `minimal`, `standard`, `compliance-heavy`
   - Allow profile + explicit overrides (`--enable-features` / `--disable-features`)
   - Emit selected profile in `.ai-docs/FEATURES.md`
-- [ ] **Per-feature generation metrics**
+- [x] **Per-feature generation metrics**
   - Track generated file counts by feature key
   - Add feature-level timings to JSON report output
   - Surface slowest features in performance history reporting
-- [ ] **Golden snapshot coverage for feature outputs**
+- [x] **Golden snapshot coverage for feature outputs**
   - Add snapshot fixtures for key feature combinations
   - Detect accidental content drift in generated docs/specs
   - Include snapshot diff hints in CI artifact output
-- [ ] **Feature config import/export**
+- [x] **Feature config import/export**
   - Add `--features-config` JSON input for repeatable runs
   - Add `--write-features-config` to persist active feature sets
   - Validate schema and reject unknown keys with clear errors
-- [ ] **Feature lifecycle policy**
+- [x] **Feature lifecycle policy**
   - Define policy for experimental/deprecated feature flags
   - Add CLI labels for stable vs experimental features
   - Document migration path when a feature is renamed/removed
-- [ ] **Matrix performance scaling**
+- [x] **Matrix performance scaling**
   - Split matrix cases into fast and full tiers
   - Run fast tier on PRs and full tier on main/nightly
   - Track matrix duration trend and optimize slowest cases
