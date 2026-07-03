@@ -171,6 +171,15 @@
 
 ## Phase 9: Reliability and Release Scale
 
+- [x] **Agent capability baseline (necessary now)**
+  - [x] Add context window controls (`--context-max-files`, `--context-preview-chars`)
+  - [x] Persist short-term run memory (`.ai-docs/session-state.json`)
+  - [x] Keep tool-first deterministic orchestration in CI/scripts
+- [ ] **Deferred agent capabilities (later)**
+  - [ ] Evaluate long-term memory only when cross-run adaptation is required
+  - [ ] Evaluate MCP integration when external tool connectors are needed
+  - [ ] Re-evaluate ReAct/MAS only when single-agent flow becomes a bottleneck
+
 - [ ] **Matrix intelligence and flake control**
   - Capture per-case failure artifacts (stdout/stderr bundles)
   - Add deterministic rerun support (ordering seed)

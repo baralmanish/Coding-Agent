@@ -1248,7 +1248,11 @@ def detect_stack(project_dir: Path) -> dict:
     }}
 
 
-def gather_existing_markdown_context(project_dir: Path, max_files: int = 20) -> list[dict]:
+def gather_existing_markdown_context(
+    project_dir: Path,
+    max_files: int = 20,
+    preview_chars: int = 500,
+) -> list[dict]:
     generated_roots = (
         "AGENTS.md",
         "AI_DOCS_INDEX.md",
@@ -1257,6 +1261,8 @@ def gather_existing_markdown_context(project_dir: Path, max_files: int = 20) -> 
         "ANTIGRAVITY.md",
     )
     docs = []
+    max_files = max(1, min(int(max_files), 200))
+    preview_chars = max(100, min(int(preview_chars), 8000))
     for md_file in sorted(project_dir.rglob("*.md")):
         rel = md_file.relative_to(project_dir).as_posix()
         if rel.startswith(".git/"):
@@ -1271,10 +1277,15 @@ def gather_existing_markdown_context(project_dir: Path, max_files: int = 20) -> 
             content = md_file.read_text(encoding="utf-8", errors="ignore")
         except Exception:
             continue
-        docs.append({{"path": rel, "preview": content[:500].strip()}})
+        docs.append({{"path": rel, "preview": content[:preview_chars].strip()}})
         if len(docs) >= max_files:
             break
     return docs
+
+
+def write_session_state(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
 def ask_new_project_details() -> dict:
@@ -2598,6 +2609,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--json-report-path", help="Optional path to write structured JSON run report.")
     parser.add_argument("--track-performance", action="store_true", help="Track run duration history and flag regressions.")
     parser.add_argument("--performance-history-path", default="benchmarks/performance-history.json", help="Path for performance history JSON when --track-performance is enabled.")
+    parser.add_argument("--context-max-files", type=int, default=20, help="Maximum markdown files to include in context scan (1-200).")
+    parser.add_argument("--context-preview-chars", type=int, default=500, help="Preview chars per markdown file in context scan (100-8000).")
+    parser.add_argument("--session-state-path", default=".ai-docs/session-state.json", help="Path to write short-term session state for the latest run.")
     parser.add_argument("--report-path", help="Optional path to write markdown report in --check mode.")
     return parser.parse_args()
 
@@ -2666,7 +2680,20 @@ def main() -> None:
         print(f"Using override mode: {{mode}}")
 
     stack = detect_stack(project_dir)
-    markdown_context = gather_existing_markdown_context(project_dir)
+    context_max_files = int(max(1, min(args.context_max_files, 200)))
+    context_preview_chars = int(max(100, min(args.context_preview_chars, 8000)))
+    try:
+        markdown_context = gather_existing_markdown_context(
+            project_dir,
+            max_files=context_max_files,
+            preview_chars=context_preview_chars,
+        )
+    except TypeError:
+        # Backward-compatible fallback when embedded helper only supports max_files.
+        markdown_context = gather_existing_markdown_context(project_dir, context_max_files)
+        for item in markdown_context:
+            if isinstance(item, dict):
+                item["preview"] = str(item.get("preview", ""))[:context_preview_chars]
 
     try:
         imported_feature_config = load_feature_config((args.features_config or "").strip())
@@ -2827,6 +2854,29 @@ def main() -> None:
     if args.json_report_path:
         report_json_path = resolve_output_path(project_dir, args.json_report_path)
         write_json_report(report_json_path, run_metrics)
+
+    if not args.check and not dry_run:
+        session_state_path = resolve_output_path(project_dir, args.session_state_path)
+        write_session_state(
+            session_state_path,
+            {{
+                "timestamp": run_metrics.get("timestamp"),
+                "mode": mode,
+                "project": str(project_dir),
+                "selected_feature_profile": selected_feature_profile or "custom",
+                "active_features": list(active_features),
+                "context_window": {{
+                    "max_files": context_max_files,
+                    "preview_chars": context_preview_chars,
+                    "files_used": len(markdown_context),
+                }},
+                "run_metrics": {{
+                    "duration_ms": int(run_metrics.get("duration_ms", 0)),
+                    "managed_files": int(run_metrics.get("managed_files", 0)),
+                    "changed_files": int(run_metrics.get("changed_files", 0)),
+                }},
+            }},
+        )
 
     if args.check:
         if changed_files:

@@ -138,7 +138,7 @@ def parse_toml_dependencies(path: Path) -> list[str]:
 
 
 def gather_existing_markdown_context(
-    project_dir: Path, max_files: int = 20
+    project_dir: Path, max_files: int = 20, preview_chars: int = 500
 ) -> list[dict[str, Any]]:
     """Gather existing markdown files for context (excluding generated files)."""
     generated_roots = (
@@ -149,6 +149,8 @@ def gather_existing_markdown_context(
         "ANTIGRAVITY.md",
     )
     docs = []
+    max_files = max(1, min(int(max_files), 200))
+    preview_chars = max(100, min(int(preview_chars), 8000))
     for md_file in sorted(project_dir.rglob("*.md")):
         rel = md_file.relative_to(project_dir).as_posix()
         if (
@@ -164,7 +166,7 @@ def gather_existing_markdown_context(
             content = md_file.read_text(encoding="utf-8", errors="ignore")
         except Exception:
             continue
-        docs.append({"path": rel, "preview": content[:500].strip()})
+        docs.append({"path": rel, "preview": content[:preview_chars].strip()})
         if len(docs) >= max_files:
             break
     return docs

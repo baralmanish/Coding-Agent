@@ -178,6 +178,33 @@ Notes:
 
 The JSON report includes per-feature `generated_files`, `changed_files`, and `duration_ms` entries. Performance history also records the slowest features for each run.
 
+### Context window controls
+
+Tune markdown context ingestion for stable prompt size:
+
+```bash
+./ai-docs-bootstrap --project /path/to/project --mode existing \
+   --context-max-files 20 \
+   --context-preview-chars 500
+```
+
+Limits:
+
+- `--context-max-files`: 1-200
+- `--context-preview-chars`: 100-8000
+
+### Short-term session memory
+
+Each non-check, non-dry run writes a lightweight run state snapshot to:
+
+- `.ai-docs/session-state.json`
+
+Override location with:
+
+```bash
+./ai-docs-bootstrap --project /path/to/project --session-state-path .ai-docs/session-state.json
+```
+
 ### Discover available options (no prompts)
 
 ```bash
