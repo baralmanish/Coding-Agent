@@ -6,11 +6,48 @@ on:
     branches:
       - main
       - master
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: Manual run mode
+        required: true
+        default: smoke
+        type: choice
+        options:
+          - smoke
+          - full
   schedule:
     - cron: "0 4 * * *"
 
 jobs:
+  ai-docs-smoke:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.tier == 'smoke'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Build Bootstrap
+        run: |
+          printf "4\n" | python3 setup-ai-docs.py
+
+      - name: Smoke Compile
+        run: |
+          python3 -m py_compile setup-ai-docs.py ai-docs-bootstrap
+
+      - name: Smoke Run Non-Interactive
+        run: |
+          tmp_dir="$(mktemp -d)"
+          ./ai-docs-bootstrap --project "$tmp_dir" --mode new --non-interactive --intent "ride booking ecommerce payments" --compliance "soc2,gdpr"
+          test -f "$tmp_dir/.ai-docs/APP-BLUEPRINT.md"
+
   ai-docs-check:
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.tier == 'full'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
