@@ -95,7 +95,7 @@ python3 setup-ai-docs.py
 For Windows profile output:
 
 ```bash
-python ai-docs-bootstrap.py --project C:\path\to\project
+py ai-docs-bootstrap.py --project C:\path\to\project
 ```
 
 ### Drop-In Quick Start (Other Repos)
@@ -113,6 +113,19 @@ curl -fsSL https://raw.githubusercontent.com/baralmanish/Coding-Agent/main/ai-do
 ```
 
 ## Usage
+
+Command form by platform:
+
+- macOS/Linux profile: `./ai-docs-bootstrap ...`
+- Windows profile: `py ai-docs-bootstrap.py ...`
+
+Discover all available flags:
+
+```bash
+./ai-docs-bootstrap --help
+# Windows profile:
+py ai-docs-bootstrap.py --help
+```
 
 ### Auto mode (default)
 

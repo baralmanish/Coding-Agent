@@ -21,6 +21,7 @@ env/
 # Logs and temporary outputs
 *.log
 *.tmp
+.ci-artifacts/
 
 # Local smoke/test artifacts
 .ai-docs-check-report.md
