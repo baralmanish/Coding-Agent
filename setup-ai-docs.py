@@ -24,43 +24,10 @@ import textwrap
 from functools import lru_cache
 from pathlib import Path
 
-# Modularized imports from src/
-from src.lib import (
-    resolve_app_blueprint,
-    resolve_compliance_packs,
-    resolve_package_guidance,
-    merge_unique,
-    slugify_intent_key,
-    parse_compliance_input,
-    keyword_confidence_score,
-    compute_framework_intent_bonus,
-)
 from src.constants import (
-    COMPLIANCE_PACKS,
-    COMPLIANCE_ALIASES,
     STACK_PRESETS,
     APP_ARCHETYPES,
     INTENT_KEYWORD_BLUEPRINTS,
-    FRAMEWORK_INTENT_HINTS,
-    PACKAGE_GUIDANCE,
-    SECURITY_AUDIT_COMMANDS,
-)
-from src.core import build_common_context
-from src.generators import (
-    generate_agents_md,
-    generate_app_blueprint_md,
-    generate_index_md,
-    generate_context_snapshot,
-    generate_agent_specific_docs,
-    generate_level_2_compliance_scanning,
-    generate_level_3_compliance_patterns,
-)
-from src.utils import (
-    write_text,
-    read_text_if_exists,
-    normalize_text,
-    append_changelog,
-    load_previous_metadata,
 )
 
 
@@ -388,9 +355,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import re
-import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
