@@ -1,6 +1,10 @@
 import unittest
 
-from scripts.spec_traceability_gate import evaluate_changes, is_code_change, is_traceability_update
+from scripts.spec_traceability_gate import (
+    evaluate_changes,
+    is_code_change,
+    is_traceability_update,
+)
 
 
 class SpecTraceabilityGateTests(unittest.TestCase):
@@ -28,11 +32,13 @@ class SpecTraceabilityGateTests(unittest.TestCase):
         self.assertEqual(len(result["violations"]), 1)
 
     def test_evaluate_changes_passes_when_traceability_present(self):
-        result = evaluate_changes([
-            "src/api/orders.py",
-            ".specs/features/orders/spec.md",
-            ".ai-docs/APP-BLUEPRINT.md",
-        ])
+        result = evaluate_changes(
+            [
+                "src/api/orders.py",
+                ".specs/features/orders/spec.md",
+                ".ai-docs/APP-BLUEPRINT.md",
+            ]
+        )
         self.assertTrue(result["passed"])
         self.assertEqual(result["violations"], [])
 

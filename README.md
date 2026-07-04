@@ -360,20 +360,20 @@ Current removed keys:
 
 Feature key reference:
 
-| Feature key            | Purpose                                                      |
-| ---------------------- | ------------------------------------------------------------ |
-| `base-docs`            | Core shared AI docs and top-level indexes                    |
-| `agent-docs`           | Agent-specific guidance files (Copilot, Claude, Codex, etc.) |
-| `feature-specs`        | Feature spec and memory scaffolding under `.specs/features`  |
-| `containerization-docs`| Containerization baseline and deployment guidance (`.ai-docs/CONTAINERIZATION.md`) |
-| `custom-agent-config`  | Custom framework/compliance/template summary docs            |
-| `compliance-level-2`   | Level 2 compliance scanning files                            |
-| `compliance-level-3`   | Level 3 compliance implementation pattern files              |
-| `ai-analysis`          | AI-assisted compliance analysis report                       |
-| `patch-proposals`      | Level 3 patch proposal and injection reports                 |
-| `auto-patch-apply`     | Apply deterministic auto-patches and emit result report      |
-| `compliance-dashboard` | Compliance dashboard HTML output                             |
-| `feature-catalog`      | Generated feature status file (`.ai-docs/FEATURES.md`)       |
+| Feature key             | Purpose                                                                            |
+| ----------------------- | ---------------------------------------------------------------------------------- |
+| `base-docs`             | Core shared AI docs and top-level indexes                                          |
+| `agent-docs`            | Agent-specific guidance files (Copilot, Claude, Codex, etc.)                       |
+| `feature-specs`         | Feature spec and memory scaffolding under `.specs/features`                        |
+| `containerization-docs` | Containerization baseline and deployment guidance (`.ai-docs/CONTAINERIZATION.md`) |
+| `custom-agent-config`   | Custom framework/compliance/template summary docs                                  |
+| `compliance-level-2`    | Level 2 compliance scanning files                                                  |
+| `compliance-level-3`    | Level 3 compliance implementation pattern files                                    |
+| `ai-analysis`           | AI-assisted compliance analysis report                                             |
+| `patch-proposals`       | Level 3 patch proposal and injection reports                                       |
+| `auto-patch-apply`      | Apply deterministic auto-patches and emit result report                            |
+| `compliance-dashboard`  | Compliance dashboard HTML output                                                   |
+| `feature-catalog`       | Generated feature status file (`.ai-docs/FEATURES.md`)                             |
 
 ## Stack Presets
 
