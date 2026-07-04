@@ -57,6 +57,10 @@ class CoreGeneratorTests(unittest.TestCase):
         self.assertIn("Project type: existing", doc)
         self.assertIn("Target OS: macos", doc)
         self.assertIn("Languages: Python", doc)
+        self.assertIn("## Git Branching Standard (Default)", doc)
+        self.assertIn(
+            "Use trunk-based development with short-lived feature branches", doc
+        )
 
     def test_generate_app_blueprint_md_includes_compliance_and_guidance(self):
         doc = generate_app_blueprint_md(self.ctx)

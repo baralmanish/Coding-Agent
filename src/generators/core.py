@@ -47,6 +47,23 @@ Canonical cross-agent guidance for AI-assisted development in this repository.
 4. Avoid exposing secrets in code, docs, or logs.
 5. Document assumptions and unknowns explicitly.
 
+## Git Branching Standard (Default)
+Use trunk-based development with short-lived feature branches:
+- Protected branch: `main` (always releasable)
+- Feature work: `feature/<ticket-or-scope>` from latest `main`
+- Hotfix work: `hotfix/<ticket-or-scope>` from latest `main`
+- Release tags: `vX.Y.Z` on `main` (avoid long-lived release branches unless required)
+
+Pull request rules:
+- Rebase or merge latest `main` before requesting review
+- Require CI green, at least one review, and resolved conversations before merge
+- Prefer squash merge to keep history concise and traceable
+
+Branch hygiene:
+- Keep branches short-lived (target < 3 days)
+- Delete merged branches immediately
+- Avoid direct commits to `main` except for emergency maintainer fixes
+
 ## Quality Gate
 - Build passes
 - Lint passes
