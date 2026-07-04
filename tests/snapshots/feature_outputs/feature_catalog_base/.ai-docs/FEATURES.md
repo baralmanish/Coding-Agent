@@ -7,6 +7,7 @@ custom
 - base-docs [stable]: Core shared AI docs under .ai-docs and top-level indexes
 - agent-docs [stable]: Agent-specific guidance files (Copilot, Claude, Codex, etc.)
 - feature-specs [stable]: Spec/memory scaffolding under .specs/features
+- containerization-docs [stable]: Containerization baseline and deployment guidance
 - custom-agent-config [stable]: Custom framework/compliance/template summary docs
 - compliance-level-2 [stable]: Level 2 compliance scanning files
 - compliance-level-3 [stable]: Level 3 compliance implementation pattern files
@@ -23,6 +24,7 @@ custom
 ## Inactive Features
 - agent-docs [stable]
 - feature-specs [stable]
+- containerization-docs [stable]
 - custom-agent-config [stable]
 - compliance-level-2 [stable]
 - compliance-level-3 [stable]

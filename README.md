@@ -287,7 +287,7 @@ Use a named feature profile as the base set, then override it:
 
 Available profiles:
 
-- `minimal`: core docs, agent docs, feature specs, feature catalog
+- `minimal`: core docs, agent docs, feature specs, containerization docs, feature catalog
 - `standard`: minimal + custom-agent-config + compliance-level-2
 - `compliance-heavy`: standard + compliance-level-3 + ai-analysis + patch-proposals + compliance-dashboard
 
@@ -365,6 +365,7 @@ Feature key reference:
 | `base-docs`            | Core shared AI docs and top-level indexes                    |
 | `agent-docs`           | Agent-specific guidance files (Copilot, Claude, Codex, etc.) |
 | `feature-specs`        | Feature spec and memory scaffolding under `.specs/features`  |
+| `containerization-docs`| Containerization baseline and deployment guidance (`.ai-docs/CONTAINERIZATION.md`) |
 | `custom-agent-config`  | Custom framework/compliance/template summary docs            |
 | `compliance-level-2`   | Level 2 compliance scanning files                            |
 | `compliance-level-3`   | Level 3 compliance implementation pattern files              |

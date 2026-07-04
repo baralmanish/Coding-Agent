@@ -135,6 +135,29 @@ class BootstrapIntegrationTests(unittest.TestCase):
             ).read_text(encoding="utf-8")
             self.assertIn("# Especificacion de Funcionalidad: analytics", spec_doc)
 
+    def test_containerization_docs_generated_by_default(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project_dir = Path(tmp)
+            ctx = self._build_ctx(
+                project_dir,
+                target_os="linux",
+                compliance_keys=[],
+                compliance_level=1,
+            )
+
+            generated, _ = mod.generate_files(
+                project_dir, ctx, markdown_context=[], check_mode=False
+            )
+            generated_set = set(generated)
+
+            self.assertIn(".ai-docs/CONTAINERIZATION.md", generated_set)
+            container_doc = (
+                project_dir / ".ai-docs" / "CONTAINERIZATION.md"
+            ).read_text(encoding="utf-8")
+            self.assertIn("# Containerization Baseline", container_doc)
+            self.assertIn("## Dockerfile Baseline", container_doc)
+            self.assertIn("## Kubernetes Baseline", container_doc)
+
     def test_custom_agent_support_generates_custom_outputs(self):
         with tempfile.TemporaryDirectory() as tmp:
             project_dir = Path(tmp)

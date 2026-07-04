@@ -175,6 +175,10 @@
   - [x] Add context window controls (`--context-max-files`, `--context-preview-chars`)
   - [x] Persist short-term run memory (`.ai-docs/session-state.json`)
   - [x] Keep tool-first deterministic orchestration in CI/scripts
+- [x] **Default containerization feature**
+  - [x] Add `containerization-docs` to feature catalog/profile defaults
+  - [x] Generate `.ai-docs/CONTAINERIZATION.md` with Docker/Compose/Kubernetes baseline
+  - [x] Update README feature reference and tests/snapshots for the new feature
 - [ ] **Deferred agent capabilities (later)**
   - [ ] Evaluate long-term memory only when cross-run adaptation is required
   - [ ] Evaluate MCP integration when external tool connectors are needed
@@ -207,5 +211,5 @@
 - Phase 4 (documentation) facilitates adoption
 - Phase 5+ (expansion) adds new capabilities
 
-**Last Updated**: 2026-07-03
+**Last Updated**: 2026-07-04
 **Modularization Commit**: a115f7c

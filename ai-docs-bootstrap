@@ -40,6 +40,7 @@ FEATURE_CATALOG = {
     "base-docs": "Core shared AI docs under .ai-docs and top-level indexes",
     "agent-docs": "Agent-specific guidance files (Copilot, Claude, Codex, etc.)",
     "feature-specs": "Spec/memory scaffolding under .specs/features",
+    "containerization-docs": "Containerization baseline and deployment guidance",
     "custom-agent-config": "Custom framework/compliance/template summary docs",
     "compliance-level-2": "Level 2 compliance scanning files",
     "compliance-level-3": "Level 3 compliance implementation pattern files",
@@ -61,6 +62,7 @@ FEATURE_LIFECYCLE = {
     "base-docs": {"status": "stable"},
     "agent-docs": {"status": "stable"},
     "feature-specs": {"status": "stable"},
+    "containerization-docs": {"status": "stable"},
     "custom-agent-config": {"status": "stable"},
     "compliance-level-2": {"status": "stable"},
     "compliance-level-3": {"status": "stable"},
@@ -91,12 +93,14 @@ FEATURE_PROFILES = {
         "base-docs",
         "agent-docs",
         "feature-specs",
+        "containerization-docs",
         "feature-catalog",
     ],
     "standard": [
         "base-docs",
         "agent-docs",
         "feature-specs",
+        "containerization-docs",
         "custom-agent-config",
         "compliance-level-2",
         "feature-catalog",
@@ -105,6 +109,7 @@ FEATURE_PROFILES = {
         "base-docs",
         "agent-docs",
         "feature-specs",
+        "containerization-docs",
         "custom-agent-config",
         "compliance-level-2",
         "compliance-level-3",
@@ -121,6 +126,7 @@ def default_active_features() -> list[str]:
         "base-docs",
         "agent-docs",
         "feature-specs",
+        "containerization-docs",
         "custom-agent-config",
         "compliance-level-2",
         "compliance-level-3",
@@ -290,6 +296,111 @@ def generate_feature_status_md(active_features: list[str], selected_profile: str
     active="\n".join(active_lines),
     inactive="\n".join(inactive_lines),
     )
+
+
+def generate_containerization_md(ctx: dict) -> str:
+        stack = ctx.get("stack", {})
+        languages = ", ".join(stack.get("languages") or ["TBD"])
+        frameworks = ", ".join(stack.get("frameworks") or ["TBD"])
+        package_managers = ", ".join(stack.get("package_managers") or ["TBD"])
+
+        return f"""# Containerization Baseline
+
+Last updated: {ctx.get("generated_at", "unknown")}
+
+## Detected Stack Context
+- Languages: {languages}
+- Frameworks: {frameworks}
+- Package managers: {package_managers}
+
+## Strategy (Industry Standard)
+Use a multi-stage Docker build and run containers as non-root with a minimal runtime image.
+
+## Dockerfile Baseline
+```dockerfile
+# syntax=docker/dockerfile:1.7
+FROM python:3.11-slim AS builder
+WORKDIR /app
+COPY requirements*.txt ./
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+FROM python:3.11-slim AS runtime
+ENV PYTHONDONTWRITEBYTECODE=1 \
+        PYTHONUNBUFFERED=1
+WORKDIR /app
+RUN addgroup --system app && adduser --system --ingroup app app
+COPY --from=builder /install /usr/local
+COPY . .
+USER app
+EXPOSE 8000
+CMD ["python", "-m", "app"]
+```
+
+## Docker Compose Baseline
+```yaml
+services:
+    app:
+        build:
+            context: .
+            target: runtime
+        ports:
+            - "8000:8000"
+        env_file:
+            - .env
+        read_only: true
+        security_opt:
+            - no-new-privileges:true
+        restart: unless-stopped
+```
+
+## Kubernetes Baseline
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: app
+spec:
+    replicas: 2
+    selector:
+        matchLabels:
+            app: app
+    template:
+        metadata:
+            labels:
+                app: app
+        spec:
+            containers:
+                - name: app
+                    image: ghcr.io/your-org/your-app:latest
+                    ports:
+                        - containerPort: 8000
+                    securityContext:
+                        allowPrivilegeEscalation: false
+                        runAsNonRoot: true
+                        readOnlyRootFilesystem: true
+                    resources:
+                        requests:
+                            cpu: "100m"
+                            memory: "128Mi"
+                        limits:
+                            cpu: "500m"
+                            memory: "512Mi"
+```
+
+## CI/CD Checklist
+1. Build image on each pull request and default-branch push.
+2. Scan image for vulnerabilities before release.
+3. Push immutable image tags (commit SHA + semver).
+4. Promote via environment-specific manifests/values, not mutable tags.
+5. Run smoke tests against containerized runtime before production deploy.
+
+## Security Checklist
+- Do not bake secrets into images.
+- Use a non-root user and minimal base image.
+- Enable image scanning and patch base images regularly.
+- Keep runtime filesystem read-only where possible.
+- Pin dependencies and verify provenance in CI.
+"""
 
 STACK_PRESETS = {
     "react-ts": {
@@ -3097,6 +3208,12 @@ related:
         common_files[".ai-docs/FEATURES.md"] = generate_feature_status_md(sorted(active_features))
         add_feature_duration("feature-catalog", feature_catalog_started_at)
         track_feature_outputs("feature-catalog", [".ai-docs/FEATURES.md"])
+
+    if "containerization-docs" in active_features:
+        containerization_started_at = time.perf_counter()
+        common_files[".ai-docs/CONTAINERIZATION.md"] = generate_containerization_md(ctx)
+        add_feature_duration("containerization-docs", containerization_started_at)
+        track_feature_outputs("containerization-docs", [".ai-docs/CONTAINERIZATION.md"])
 
     if "feature-specs" in active_features:
         feature_specs_started_at = time.perf_counter()
