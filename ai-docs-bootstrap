@@ -13,6 +13,7 @@ import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 try:
     import tomllib  # Python 3.11+
@@ -1691,6 +1692,89 @@ SECURITY_AUDIT_COMMANDS = {
 }
 
 
+if TYPE_CHECKING:
+    # Stubs for functions injected via exec() later in this generated script.
+    # This keeps Ruff/Pylance from reporting undefined symbols in call sites.
+    def sanitize_feature_name(name: str) -> str: ...
+
+    def detect_feature_names(project_dir: Path, max_features: int = 8) -> list[str]: ...
+
+    def write_metadata_simple(
+        project_dir: Path, ctx: dict, generated_files: list[str]
+    ) -> None: ...
+
+    def build_feature_spec_files(
+        feature_names: list[str], locale: str = "en"
+    ) -> tuple[dict[str, str], str]: ...
+
+    def generate_agents_md(ctx: dict) -> str: ...
+
+    def generate_app_blueprint_md(ctx: dict) -> str: ...
+
+    def generate_index_md(ctx: dict, files: list[str]) -> str: ...
+
+    def generate_context_snapshot(ctx: dict, markdown_context: list[dict]) -> str: ...
+
+    def generate_agent_specific_docs(ctx: dict) -> dict[str, str]: ...
+
+    def generate_level_2_compliance_scanning(
+        compliance_packs: list[dict], locale: str = "en", compliance_region: str = ""
+    ) -> dict[str, str]: ...
+
+    def generate_level_3_compliance_patterns(
+        compliance_packs: list[dict], locale: str = "en", compliance_region: str = ""
+    ) -> dict[str, str]: ...
+
+    def generate_level_3_pattern_injection_report(
+        project_dir: Path, compliance_packs: list[dict]
+    ) -> str | None: ...
+
+    def generate_level_3_patch_proposals(
+        project_dir: Path, compliance_packs: list[dict], max_proposals_per_rule: int = 3
+    ) -> str | None: ...
+
+    def generate_ai_assisted_compliance_analysis(
+        project_dir: Path, compliance_packs: list[dict], max_findings: int = 12
+    ) -> str | None: ...
+
+    def generate_compliance_dashboard_html(
+        project_dir: Path,
+        compliance_packs: list[dict],
+        planned_output_paths: list[str] | None = None,
+    ) -> str: ...
+
+    def apply_level_3_patch_proposals(
+        project_dir: Path,
+        compliance_packs: list[dict],
+        max_patches_per_rule: int = 3,
+        patch_allowlist: list[str] | None = None,
+        patch_denylist: list[str] | None = None,
+    ) -> dict[str, list[dict]]: ...
+
+    def generate_level_3_applied_patch_report(
+        project_dir: Path, applied_items: list[dict]
+    ) -> str | None: ...
+
+    def read_text_if_exists(path: Path) -> str: ...
+
+    def normalize_text(content: str) -> str: ...
+
+    def write_text(path: Path, content: str) -> None: ...
+
+    def append_changelog(changelog_path: Path, summary: str, now_utc_fn: Any = None) -> None: ...
+
+    def load_previous_metadata(project_dir: Path) -> dict: ...
+
+    def compute_stale_reasons(project_dir: Path, ctx: dict) -> list[str]: ...
+
+    def write_check_report(
+        path: Path,
+        changed_files: list[str],
+        reasons: list[str],
+        project_dir: Path,
+    ) -> None: ...
+
+
 def now_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
@@ -2231,10 +2315,10 @@ def ask_new_project_details() -> dict:
     compliance_raw = input("Compliance packs (optional comma separated: pci-dss,hipaa,soc2,gdpr,ccpa,iso27001): ").strip()
 
     agents = [a.strip() for a in agents_raw.split(",") if a.strip()] if agents_raw else list(DEFAULT_AGENTS)
-    languages = [l.strip() for l in lang_raw.split(",") if l.strip()]
+    languages = [lang.strip() for lang in lang_raw.split(",") if lang.strip()]
     frameworks = [f.strip() for f in fw_raw.split(",") if f.strip()]
     tests = [t.strip() for t in test_raw.split(",") if t.strip()]
-    linting = [l.strip() for l in lint_raw.split(",") if l.strip()]
+    linting = [lint_item.strip() for lint_item in lint_raw.split(",") if lint_item.strip()]
 
     preset_data = STACK_PRESETS.get(preset, {})
     if preset and not preset_data:
