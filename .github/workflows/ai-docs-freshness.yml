@@ -16,6 +16,14 @@ on:
         options:
           - smoke
           - full
+      docs_specs_gate:
+        description: Enforce docs/specs-first gate
+        required: true
+        default: off
+        type: choice
+        options:
+          - off
+          - on
   schedule:
     - cron: "0 4 * * *"
 
@@ -26,6 +34,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -75,6 +85,35 @@ jobs:
       - name: Run Unit Tests
         run: |
           python3 -m unittest discover -s tests -p 'test_*.py'
+
+      - name: Resolve Docs/Specs Gate Toggle
+        id: docs_specs_gate
+        run: |
+          enabled="false"
+          if [ "${{ vars.AI_DOCS_SPECS_GATE }}" = "true" ]; then
+            enabled="true"
+          fi
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.docs_specs_gate }}" = "on" ]; then
+            enabled="true"
+          fi
+          echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
+
+      - name: Enforce Docs/Specs-First Gate (Optional)
+        if: steps.docs_specs_gate.outputs.enabled == 'true'
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            head_sha="${{ github.event.pull_request.head.sha }}"
+          else
+            base_sha="${{ github.event.before }}"
+            head_sha="${{ github.sha }}"
+          fi
+
+          python3 scripts/spec_traceability_gate.py \
+            --enabled true \
+            --base-sha "$base_sha" \
+            --head-sha "$head_sha" \
+            --report-path .ci-artifacts/spec-traceability-gate.json
 
       - name: Run Feature Matrix Validation (Fast Tier)
         if: github.event_name == 'pull_request'

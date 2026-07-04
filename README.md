@@ -478,6 +478,13 @@ This repository includes `.github/workflows/ai-docs-freshness.yml`:
 - Uploads stale report artifact when docs are outdated
 - Fails workflow when stale docs are detected
 
+Optional docs/specs-first gate:
+
+- Enforces: code changes must include updates under `.specs/` or `.ai-docs/` (or `AGENTS.md` / `AI_DOCS_INDEX.md`)
+- Toggle ON globally with repository variable: `AI_DOCS_SPECS_GATE=true`
+- Toggle ON per manual run with workflow input: `docs_specs_gate=on`
+- Gate report artifact path: `.ci-artifacts/spec-traceability-gate.json`
+
 ## Common Workflow
 
 1. Run bootstrap after major stack/tooling changes.
