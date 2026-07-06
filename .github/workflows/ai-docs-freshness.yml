@@ -16,8 +16,8 @@ on:
         options:
           - smoke
           - full
-      docs_specs_gate:
-        description: Enforce docs/specs-first gate
+      strict_specs_mode:
+        description: Enable strict spec gate checks
         required: true
         default: off
         type: choice
@@ -62,6 +62,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -86,21 +88,16 @@ jobs:
         run: |
           python3 -m unittest discover -s tests -p 'test_*.py'
 
-      - name: Resolve Docs/Specs Gate Toggle
-        id: docs_specs_gate
+      - name: Enforce Docs/Specs-First Gate
         run: |
-          enabled="false"
-          if [ "${{ vars.AI_DOCS_SPECS_GATE }}" = "true" ]; then
-            enabled="true"
+          strict_mode="false"
+          if [ "${{ vars.AI_DOCS_SPECS_STRICT_MODE }}" = "true" ]; then
+            strict_mode="true"
           fi
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.docs_specs_gate }}" = "on" ]; then
-            enabled="true"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.strict_specs_mode }}" = "on" ]; then
+            strict_mode="true"
           fi
-          echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
 
-      - name: Enforce Docs/Specs-First Gate (Optional)
-        if: steps.docs_specs_gate.outputs.enabled == 'true'
-        run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             base_sha="${{ github.event.pull_request.base.sha }}"
             head_sha="${{ github.event.pull_request.head.sha }}"
@@ -111,6 +108,7 @@ jobs:
 
           python3 scripts/spec_traceability_gate.py \
             --enabled true \
+            --strict-mode "$strict_mode" \
             --base-sha "$base_sha" \
             --head-sha "$head_sha" \
             --report-path .ci-artifacts/spec-traceability-gate.json

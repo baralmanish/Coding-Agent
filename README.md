@@ -331,6 +331,8 @@ Validation behavior:
 
 - Feature names must be from `--list-features`
 - Unknown feature names fail fast with an error (not silently ignored)
+- `feature-specs` is enabled by default in standard profiles, but it can be disabled
+- If `feature-specs` is enabled, spec-driven flow is strict: every newly requested app feature should be documented in specs where behavior, interfaces, or workflows change
 - Dependency violations fail fast with actionable messages
 - Add more capabilities later with `--enable-features` and remove with `--disable-features`
 - Selected profile is emitted in `.ai-docs/FEATURES.md`
@@ -341,6 +343,23 @@ Dependency rules:
 - `patch-proposals` requires `compliance-level-3`
 - `compliance-dashboard` requires `compliance-level-3`
 - `auto-patch-apply` requires `compliance-level-3` and the `--apply-auto-patches` flag
+
+Feature spec template contract (when `feature-specs` is enabled):
+
+- Required path shape: `.specs/features/<feature-slug>/spec.md`
+- Required sections in each changed feature spec:
+  - `## Spec Enrollment Checklist (Mandatory)`
+  - `## Goal`
+  - `## Acceptance Criteria`
+  - `## Test Mapping`
+  - `## Traceability Matrix`
+- Normalization strategy for large specs:
+  - Keep `.specs/features/<feature>/spec.md` as the summary
+  - Move detailed content into `.specs/features/<feature>/spec/` modules:
+    - `index.md`
+    - `acceptance-criteria.md`
+    - `test-mapping.md`
+    - `traceability-matrix.md`
 
 Feature lifecycle policy:
 
@@ -478,12 +497,56 @@ This repository includes `.github/workflows/ai-docs-freshness.yml`:
 - Uploads stale report artifact when docs are outdated
 - Fails workflow when stale docs are detected
 
-Optional docs/specs-first gate:
+Default docs/specs-first gate (hard enforcement):
 
 - Enforces: code changes must include updates under `.specs/` or `.ai-docs/` (or `AGENTS.md` / `AI_DOCS_INDEX.md`)
-- Toggle ON globally with repository variable: `AI_DOCS_SPECS_GATE=true`
-- Toggle ON per manual run with workflow input: `docs_specs_gate=on`
+- Enforces: code changes must include at least one updated feature spec at `.specs/features/<feature>/spec.md`
+- Enforces: changed feature specs must include the required template sections listed above
+- Runs by default on PR, push, scheduled, and full manual CI runs
 - Gate report artifact path: `.ci-artifacts/spec-traceability-gate.json`
+
+Optional strict mode for the gate:
+
+- Enable globally with repository variable: `AI_DOCS_SPECS_STRICT_MODE=true`
+- Enable for manual full runs with workflow input: `strict_specs_mode=on`
+- Additional strict checks:
+  - Checklist items under `## Spec Enrollment Checklist (Mandatory)` must be checked (`[x]`)
+  - Oversized `spec.md` files (default: >400 lines or >24000 bytes) must be normalized into module files under `.specs/features/<feature>/spec/`
+
+PR checklist for oversized feature specs (copy/paste):
+
+- Replace `<feature-slug>` and run:
+
+```bash
+FEATURE="<feature-slug>"
+mkdir -p ".specs/features/$FEATURE/spec"
+cat > ".specs/features/$FEATURE/spec/index.md" <<'EOF'
+# Spec Index
+
+Summary and links to detailed sections.
+EOF
+cat > ".specs/features/$FEATURE/spec/acceptance-criteria.md" <<'EOF'
+# Acceptance Criteria
+
+- AC1: ...
+- AC2: ...
+EOF
+cat > ".specs/features/$FEATURE/spec/test-mapping.md" <<'EOF'
+# Test Mapping
+
+- AC1 -> tests
+- AC2 -> tests
+EOF
+cat > ".specs/features/$FEATURE/spec/traceability-matrix.md" <<'EOF'
+# Traceability Matrix
+
+- AC1 -> changed files and tests
+- AC2 -> changed files and tests
+EOF
+```
+
+- Ensure `.specs/features/<feature-slug>/spec.md` stays as the concise summary and links to the module files.
+- Commit both the updated `spec.md` and the new module files in the same PR.
 
 ## Common Workflow
 

@@ -108,6 +108,13 @@ class BootstrapIntegrationTests(unittest.TestCase):
             self.assertIn(".specs/features/orders/spec.md", generated_set)
             self.assertIn(".specs/features/billing/spec.md", generated_set)
 
+            payments_spec = (
+                project_dir / ".specs" / "features" / "payments" / "spec.md"
+            ).read_text(encoding="utf-8")
+            self.assertIn("## Spec Enrollment Checklist (Mandatory)", payments_spec)
+            self.assertIn("## Traceability Matrix", payments_spec)
+            self.assertIn("## Spec Normalization (When Spec Gets Large)", payments_spec)
+
             specs_index = (project_dir / ".specs" / "memory.md").read_text(
                 encoding="utf-8"
             )
@@ -355,6 +362,17 @@ class BootstrapIntegrationTests(unittest.TestCase):
         self.assertIn("base-docs", active)
         self.assertIn("feature-catalog", active)
         self.assertIn("compliance-dashboard", active)
+
+    def test_resolve_active_features_can_disable_feature_specs(self):
+        active = mod.resolve_active_features(
+            feature_profile="standard",
+            explicit_features=[],
+            enable_features=[],
+            disable_features=["feature-specs"],
+            apply_auto_patches=False,
+        )
+
+        self.assertNotIn("feature-specs", active)
 
     def test_resolve_active_features_rejects_missing_dependency(self):
         with self.assertRaisesRegex(ValueError, "compliance-level-3"):

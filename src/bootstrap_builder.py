@@ -127,28 +127,46 @@ def build_feature_spec_files(
         memory_path = f".specs/features/{feature}/memory.md"
 
         files[spec_path] = f"""---
-    title: {spec_label} {feature}
+title: {spec_label}: {feature}
 type: feature-spec
-tags: [ai-docs, specs, knowledge-graph]
+tags: [specs, template, traceability]
 related:
   - [[.specs/memory.md]]
   - [[.specs/features/{feature}/memory.md]]
 ---
 
-    # {spec_label}: {feature}
+# {spec_label}: {feature}
+
+## Spec Enrollment Checklist (Mandatory)
+
+- [ ] Feature folder exists: `.specs/features/{feature}/`
+- [ ] Spec created before implementation: `.specs/features/{feature}/spec.md`
+- [ ] Goal, Acceptance Criteria, Test Mapping, and Traceability Matrix are complete before code changes
 
 ## Goal
-Define expected behavior for {feature}.
+Describe the feature behavior and boundaries for {feature}.
 
 ## Acceptance Criteria
-1. Core behavior for {feature} is defined.
-2. Tests can map to acceptance criteria.
-3. Security/performance constraints are explicit.
+1. AC1: Core behavior for {feature} is defined.
+2. AC2: Tests map clearly to acceptance criteria.
+3. AC3: Security/performance constraints are explicit where necessary.
 
 ## Test Mapping
 - AC1 -> unit/integration tests for {feature}
 - AC2 -> acceptance test coverage for {feature}
 - AC3 -> security/performance checks
+
+## Traceability Matrix
+- AC1 -> changed files and tests for {feature}
+- AC2 -> changed files and tests for {feature}
+- AC3 -> changed files and tests for {feature}
+
+## Spec Normalization (When Spec Gets Large)
+If this spec grows beyond ~400 lines or becomes hard to review, keep `spec.md` as the summary and split details into:
+- `.specs/features/{feature}/spec/index.md`
+- `.specs/features/{feature}/spec/acceptance-criteria.md`
+- `.specs/features/{feature}/spec/test-mapping.md`
+- `.specs/features/{feature}/spec/traceability-matrix.md`
 
 ## Linked Notes
 - [[.specs/memory.md]]

@@ -2111,10 +2111,25 @@ type: knowledge-map
     - .specs/features/<feature>/memory.md
 
     ## Workflow
-    1. Create or update feature spec before implementation.
+    1. If `feature-specs` is enabled, create or update a spec before implementation for every new requested app feature where behavior, interfaces, or flows change.
     2. Maintain feature memory with decisions and open questions.
     3. Map acceptance criteria to tests.
     4. Keep specs in sync with shipped behavior.
+
+    ## Required Spec Sections (When Enabled)
+    - ## Spec Enrollment Checklist (Mandatory)
+    - ## Goal
+    - ## Acceptance Criteria
+    - ## Test Mapping
+    - ## Traceability Matrix
+
+    ## Spec Normalization Rule (Strict Mode)
+    If a feature spec gets too large (default thresholds: 400 lines or 24000 bytes),
+    keep `.specs/features/<feature>/spec.md` as a summary and split detailed content into:
+    - `.specs/features/<feature>/spec/index.md`
+    - `.specs/features/<feature>/spec/acceptance-criteria.md`
+    - `.specs/features/<feature>/spec/test-mapping.md`
+    - `.specs/features/<feature>/spec/traceability-matrix.md`
 
     ## Knowledge Graph Tips
     - Keep links between `spec.md` and `memory.md` in each feature folder.
@@ -2122,9 +2137,9 @@ type: knowledge-map
     - Use tags in frontmatter for filtering and graphing.
     """,
         ".specs/features/core/spec.md": """---
-title: Feature Spec Core
+title: Feature Spec: Core
 type: feature-spec
-tags: [ai-docs, specs, knowledge-graph]
+tags: [specs, template, traceability]
 related:
   - [[.specs/memory.md]]
   - [[.specs/features/core/memory.md]]
@@ -2132,18 +2147,36 @@ related:
 
 # Feature Spec: Core
 
-    ## Goal
-    Define baseline project behavior and constraints.
+        ## Spec Enrollment Checklist (Mandatory)
+
+        - [ ] Feature folder exists: `.specs/features/core/`
+        - [ ] Spec created before implementation: `.specs/features/core/spec.md`
+        - [ ] Goal, Acceptance Criteria, Test Mapping, and Traceability Matrix are complete before code changes
+
+        ## Goal
+        Describe the feature behavior and boundaries.
 
     ## Acceptance Criteria
-    1. Documentation generation runs successfully.
-    2. Generated docs are deterministic under --check mode.
-    3. Security and performance standards are enforced in guidance.
+        1. AC1: Documentation generation runs successfully.
+        2. AC2: Generated docs are deterministic under --check mode.
+        3. AC3: Security and performance standards are enforced in guidance.
 
     ## Test Mapping
     - AC1 -> smoke generation run
     - AC2 -> freshness check run
     - AC3 -> doc content validation
+
+        ## Traceability Matrix
+        - AC1 -> changed files and tests
+        - AC2 -> changed files and tests
+        - AC3 -> changed files and tests
+
+        ## Spec Normalization (When Spec Gets Large)
+        If this spec grows beyond ~400 lines or becomes hard to review, keep `spec.md` as the summary and split details into:
+        - `.specs/features/core/spec/index.md`
+        - `.specs/features/core/spec/acceptance-criteria.md`
+        - `.specs/features/core/spec/test-mapping.md`
+        - `.specs/features/core/spec/traceability-matrix.md`
 
     ## Linked Notes
     - [[.specs/memory.md]]

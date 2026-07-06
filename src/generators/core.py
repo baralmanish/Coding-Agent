@@ -76,7 +76,7 @@ Branch hygiene:
 - Apply least-privilege defaults
 
 ## Spec-Driven Development
-Use docs as executable intent:
+Use docs as executable intent. If `feature-specs` is enabled, this is strict for every new requested app feature where behavior, interfaces, or workflows change:
 - Requirements and acceptance criteria first
 - Tests mapped to acceptance criteria
 - Implementation follows validated tests
